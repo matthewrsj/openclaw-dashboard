@@ -13,7 +13,7 @@ import { cronToHuman } from "@/services/cron-expression";
 interface CronFormProps { open: boolean; onClose: () => void; }
 
 export function CronForm({ open, onClose }: CronFormProps) {
-  const agents = useAgentStore((s) => s.getAgentList());
+  const agents = useAgentStore((s) => s.agentList);
   const fetchJobs = useCronStore((s) => s.fetchJobs);
   const addToast = useUIStore((s) => s.addToast);
   const [agentId, setAgentId] = useState(agents[0]?.id || "");

@@ -5,9 +5,9 @@ import { Card } from "@/components/ui/Card";
 import { StatusDot } from "@/components/ui/StatusDot";
 
 export function SummaryBar() {
-  const agentCount = useAgentStore((state) => state.getAgentCount());
-  const activeAgents = useAgentStore((state) => state.getActiveAgents());
-  const sessionCount = useSessionStore((state) => state.getSessionCount());
+  const agentCount = useAgentStore((state) => state.agentList.length);
+  const activeAgents = useAgentStore((state) => state.activeAgents);
+  const sessionCount = useSessionStore((state) => state.sessions.size);
   const connectionState = useGatewayStore((state) => state.connectionState);
 
   const summaryItems = [

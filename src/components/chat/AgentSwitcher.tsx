@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/Input";
 
 /** Sidebar panel for switching between agent chats. */
 export function AgentSwitcher() {
-  const agents = useAgentStore((s) => s.getAgentList());
+  const agents = useAgentStore((s) => s.agentList);
   const activeAgentId = useChatStore((s) => s.activeAgentId);
   const setActiveAgentId = useChatStore((s) => s.setActiveAgentId);
   const [filter, setFilter] = useState("");

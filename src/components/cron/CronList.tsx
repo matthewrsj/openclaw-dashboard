@@ -12,12 +12,12 @@ import { formatRelativeTime } from "@/lib/format";
 import type { CronJob } from "@/types/cron";
 
 export function CronList() {
-  const jobs = useCronStore((s) => s.getJobList());
+  const jobs = useCronStore((s) => s.jobList);
   const loading = useCronStore((s) => s.loading);
   const fetchJobs = useCronStore((s) => s.fetchJobs);
   const toggleJob = useCronStore((s) => s.toggleJob);
   const runJob = useCronStore((s) => s.runJob);
-  const agents = useAgentStore((s) => s.getAgentList());
+  const agents = useAgentStore((s) => s.agentList);
   const openModal = useUIStore((s) => s.openModal);
   const [agentFilter, setAgentFilter] = useState("all");
 

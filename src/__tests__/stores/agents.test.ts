@@ -216,26 +216,26 @@ describe("AgentStore", () => {
       useAgentStore.setState({ agents });
     });
 
-    it("getAgent returns the correct agent", () => {
-      expect(useAgentStore.getState().getAgent("brokkr")?.id).toBe("brokkr");
+    it("agents.get returns the correct agent", () => {
+      expect(useAgentStore.getState().agents.get("brokkr")?.id).toBe("brokkr");
     });
 
-    it("getAgent returns undefined for missing agent", () => {
-      expect(useAgentStore.getState().getAgent("nonexistent")).toBeUndefined();
+    it("agents.get returns undefined for missing agent", () => {
+      expect(useAgentStore.getState().agents.get("nonexistent")).toBeUndefined();
     });
 
-    it("getAgentList returns all agents as array", () => {
-      expect(useAgentStore.getState().getAgentList()).toHaveLength(3);
+    it("agentList returns all agents as array", () => {
+      expect(useAgentStore.getState().agentList).toHaveLength(3);
     });
 
-    it("getActiveAgents returns only active agents", () => {
-      const active = useAgentStore.getState().getActiveAgents();
+    it("activeAgents returns only active agents", () => {
+      const active = useAgentStore.getState().activeAgents;
       expect(active).toHaveLength(2);
       expect(active.every((a) => a.status === "active")).toBe(true);
     });
 
-    it("getAgentCount returns total count", () => {
-      expect(useAgentStore.getState().getAgentCount()).toBe(3);
+    it("agentList.length returns total count", () => {
+      expect(useAgentStore.getState().agentList.length).toBe(3);
     });
   });
 });

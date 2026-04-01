@@ -3,7 +3,7 @@ import { useAgentStore } from "@/stores/agents";
 import { StatusDot } from "@/components/ui/StatusDot";
 
 export function SidebarAgents() {
-  const agents = useAgentStore((state) => state.getAgentList());
+  const agents = useAgentStore((state) => state.agentList);
 
   if (agents.length === 0) {
     return (

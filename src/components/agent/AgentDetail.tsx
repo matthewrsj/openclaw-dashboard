@@ -26,7 +26,7 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 export function AgentDetail({ agentId }: AgentDetailProps) {
-  const agent = useAgentStore((s) => s.getAgent(agentId));
+  const agent = useAgentStore((s) => s.agents.get(agentId));
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const navigate = useNavigate();
 

@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { formatCost } from "@/lib/format";
 
 export function FleetOverview() {
-  const agents = useAgentStore((s) => s.getAgentList());
+  const agents = useAgentStore((s) => s.agentList);
   const loading = useAgentStore((s) => s.loading);
   const error = useAgentStore((s) => s.error);
   const fetchAgents = useAgentStore((s) => s.fetchAgents);

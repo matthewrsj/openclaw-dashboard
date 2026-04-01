@@ -6,7 +6,7 @@ import { ChatView } from "@/components/chat/ChatView";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export function ChatPage() {
-  const agents = useAgentStore((s) => s.getAgentList());
+  const agents = useAgentStore((s) => s.agentList);
   const activeAgentId = useChatStore((s) => s.activeAgentId);
   const setActiveAgentId = useChatStore((s) => s.setActiveAgentId);
 

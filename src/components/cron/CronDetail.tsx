@@ -12,11 +12,11 @@ import type { CronRun } from "@/types/cron";
 interface CronDetailProps { jobId: string; }
 
 export function CronDetail({ jobId }: CronDetailProps) {
-  const job = useCronStore((s) => s.getJob(jobId));
-  const runs = useCronStore((s) => s.getRunsForJob(jobId));
+  const job = useCronStore((s) => s.jobs.get(jobId));
+  const runs = useCronStore((s) => s.runs.get(jobId) || []);
   const fetchRuns = useCronStore((s) => s.fetchRuns);
   const runJob = useCronStore((s) => s.runJob);
-  const agent = useAgentStore((s) => (job ? s.getAgent(job.agentId) : undefined));
+  const agent = useAgentStore((s) => (job ? s.agents.get(job.agentId) : undefined));
 
   useEffect(() => { fetchRuns(jobId); }, [jobId, fetchRuns]);
 

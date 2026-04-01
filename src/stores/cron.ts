@@ -13,6 +13,8 @@ import { useUIStore } from "./ui";
 interface CronStore {
   /** Map of job ID → CronJob. */
   jobs: Map<string, CronJob>;
+  /** Derived array of all jobs (stable reference). */
+  jobList: CronJob[];
   /** Map of job ID → run history. */
   runs: Map<string, CronRun[]>;
   /** Whether the initial fetch is in progress. */
@@ -28,15 +30,16 @@ interface CronStore {
     eventType: string,
     data: Record<string, unknown>,
   ) => void;
+}
 
-  // Selectors
-  getJob: (id: string) => CronJob | undefined;
-  getJobList: () => CronJob[];
-  getRunsForJob: (jobId: string) => CronRun[];
+/** Derive stable jobList array from the jobs Map. */
+function deriveJobList(jobs: Map<string, CronJob>) {
+  return Array.from(jobs.values());
 }
 
 export const useCronStore = create<CronStore>((set, get) => ({
   jobs: new Map(),
+  jobList: [],
   runs: new Map(),
   loading: false,
 
@@ -52,7 +55,7 @@ export const useCronStore = create<CronStore>((set, get) => ({
       for (const job of result.jobs || []) {
         jobMap.set(job.id, job);
       }
-      set({ jobs: jobMap, loading: false });
+      set({ jobs: jobMap, jobList: deriveJobList(jobMap), loading: false });
     } catch (err) {
       console.error("Failed to fetch cron jobs:", err);
       set({ loading: false });
@@ -65,7 +68,7 @@ export const useCronStore = create<CronStore>((set, get) => ({
     const prev = jobs.get(id);
     if (prev) {
       jobs.set(id, { ...prev, enabled });
-      set({ jobs });
+      set({ jobs, jobList: deriveJobList(jobs) });
     }
 
     try {
@@ -75,7 +78,7 @@ export const useCronStore = create<CronStore>((set, get) => ({
       if (prev) {
         const jobs = new Map(get().jobs);
         jobs.set(id, prev);
-        set({ jobs });
+        set({ jobs, jobList: deriveJobList(jobs) });
       }
       useUIStore.getState().addToast({
         type: "error",
@@ -104,7 +107,7 @@ export const useCronStore = create<CronStore>((set, get) => ({
       await gatewayRpc("cron.rm", { id });
       const jobs = new Map(get().jobs);
       jobs.delete(id);
-      set({ jobs });
+      set({ jobs, jobList: deriveJobList(jobs) });
     } catch (err) {
       useUIStore.getState().addToast({
         type: "error",
@@ -169,7 +172,4 @@ export const useCronStore = create<CronStore>((set, get) => ({
     }
   },
 
-  getJob: (id: string) => get().jobs.get(id),
-  getJobList: () => Array.from(get().jobs.values()),
-  getRunsForJob: (jobId: string) => get().runs.get(jobId) || [],
 }));

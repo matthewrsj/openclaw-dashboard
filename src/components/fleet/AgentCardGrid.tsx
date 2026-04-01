@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 
 export function AgentCardGrid() {
-  const { loading, getAgentList } = useAgentStore();
-  const agentList = getAgentList();
+  const loading = useAgentStore((s) => s.loading);
+  const agentList = useAgentStore((s) => s.agentList);
 
   if (loading) {
     return (

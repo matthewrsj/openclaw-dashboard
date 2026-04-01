@@ -12,6 +12,10 @@ import { execCliJson } from "../services/tauri-commands";
 interface AgentStore {
   /** Map of agent ID → Agent. */
   agents: Map<string, Agent>;
+  /** Derived array of all agents (stable reference, updated with Map). */
+  agentList: Agent[];
+  /** Derived array of active agents (stable reference, updated with Map). */
+  activeAgents: Agent[];
   /** Whether the initial fetch is in progress. */
   loading: boolean;
   /** Error from the last fetch attempt. */
@@ -29,16 +33,6 @@ interface AgentStore {
     eventType: string,
     data: Record<string, unknown>,
   ) => void;
-
-  // Selectors
-  /** Get a single agent by ID. */
-  getAgent: (agentId: string) => Agent | undefined;
-  /** Get all agents as an array. */
-  getAgentList: () => Agent[];
-  /** Get only active agents. */
-  getActiveAgents: () => Agent[];
-  /** Get the total agent count. */
-  getAgentCount: () => number;
 }
 
 /** Default sparkline data for new agents. */
@@ -68,8 +62,17 @@ function parseAgentFromCli(raw: Record<string, unknown>): Agent {
   };
 }
 
+/** Derive stable agentList and activeAgents arrays from the agents Map. */
+function deriveArrays(agents: Map<string, Agent>) {
+  const agentList = Array.from(agents.values());
+  const activeAgents = agentList.filter((a) => a.status === "active");
+  return { agentList, activeAgents };
+}
+
 export const useAgentStore = create<AgentStore>((set, get) => ({
   agents: new Map(),
+  agentList: [],
+  activeAgents: [],
   loading: false,
   error: null,
 
@@ -83,8 +86,10 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
 
       // Tauri not available — surface a helpful message instead of crashing
       if (rawAgents === null) {
+        const empty = new Map<string, Agent>();
         set({
-          agents: new Map(),
+          agents: empty,
+          ...deriveArrays(empty),
           loading: false,
           error:
             "Not running inside Tauri. Launch with 'npm run tauri dev'.",
@@ -107,7 +112,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
         }
         agentMap.set(agent.id, agent);
       }
-      set({ agents: agentMap, loading: false });
+      set({ agents: agentMap, ...deriveArrays(agentMap), loading: false });
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : String(err),
@@ -121,7 +126,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     const existing = agents.get(agentId);
     if (existing) {
       agents.set(agentId, { ...existing, ...patch });
-      set({ agents });
+      set({ agents, ...deriveArrays(agents) });
     }
   },
 
@@ -180,12 +185,6 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     }
 
     agents.set(agentId, { ...agent, subagents });
-    set({ agents });
+    set({ agents, ...deriveArrays(agents) });
   },
-
-  getAgent: (agentId: string) => get().agents.get(agentId),
-  getAgentList: () => Array.from(get().agents.values()),
-  getActiveAgents: () =>
-    Array.from(get().agents.values()).filter((a) => a.status === "active"),
-  getAgentCount: () => get().agents.size,
 }));

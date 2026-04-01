@@ -12,7 +12,7 @@ interface ChatViewProps {
 
 /** Full chat interface for a single agent. */
 export function ChatView({ agentId }: ChatViewProps) {
-  const agent = useAgentStore((s) => s.getAgent(agentId));
+  const agent = useAgentStore((s) => s.agents.get(agentId));
   const sessionKey = agent?.activeSessionKey || `agent:${agentId}:main`;
   const messages = useChatStore((s) => s.getMessages(sessionKey));
   const isStreaming = useChatStore((s) => s.isStreaming(sessionKey));
