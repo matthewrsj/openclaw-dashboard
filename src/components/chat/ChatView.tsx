@@ -14,10 +14,10 @@ interface ChatViewProps {
 export function ChatView({ agentId }: ChatViewProps) {
   const agent = useAgentStore((s) => s.agents.get(agentId));
   const sessionKey = agent?.activeSessionKey || `agent:${agentId}:main`;
-  const messages = useChatStore((s) => s.getMessages(sessionKey));
-  const isStreaming = useChatStore((s) => s.isStreaming(sessionKey));
+  const messages = useChatStore((s) => s.messages.get(sessionKey) || []);
+  const isStreaming = useChatStore((s) => s.streamingState.get(sessionKey)?.isStreaming || false);
   const addMessage = useChatStore((s) => s.addMessage);
-  const draft = useChatStore((s) => s.getDraft(agentId));
+  const draft = useChatStore((s) => s.drafts.get(agentId) || "");
   const setDraft = useChatStore((s) => s.setDraft);
   const scrollRef = useRef<HTMLDivElement>(null);
 

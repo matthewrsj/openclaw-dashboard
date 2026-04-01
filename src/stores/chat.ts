@@ -43,10 +43,7 @@ interface ChatStore {
   /** Clear messages for a session. */
   clearMessages: (sessionKey: string) => void;
 
-  // Selectors
-  getMessages: (sessionKey: string) => ChatMessage[];
-  getDraft: (agentId: string) => string;
-  isStreaming: (sessionKey: string) => boolean;
+
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -114,11 +111,4 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set({ messages });
   },
 
-  getMessages: (sessionKey: string) =>
-    get().messages.get(sessionKey) || [],
-
-  getDraft: (agentId: string) => get().drafts.get(agentId) || "",
-
-  isStreaming: (sessionKey: string) =>
-    get().streamingState.get(sessionKey)?.isStreaming || false,
 }));

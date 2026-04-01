@@ -28,13 +28,7 @@ interface SessionStore {
     data: Record<string, unknown>,
   ) => void;
 
-  // Selectors
-  /** Get all sessions for a specific agent. */
-  getSessionsForAgent: (agentId: string) => Session[];
-  /** Get only active sessions for an agent. */
-  getActiveSessionsForAgent: (agentId: string) => Session[];
-  /** Get total session count. */
-  getSessionCount: () => number;
+
 }
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
@@ -157,17 +151,4 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
   },
 
-  getSessionsForAgent: (agentId: string) => {
-    const keys = get().byAgent.get(agentId) || [];
-    return keys
-      .map((k) => get().sessions.get(k))
-      .filter((s): s is Session => s !== undefined);
-  },
-
-  getActiveSessionsForAgent: (agentId: string) =>
-    get()
-      .getSessionsForAgent(agentId)
-      .filter((s) => s.status === "active"),
-
-  getSessionCount: () => get().sessions.size,
 }));

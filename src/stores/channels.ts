@@ -20,8 +20,7 @@ interface ChannelStore {
   fetchChannels: () => Promise<void>;
   handleChannelEvent: (data: Record<string, unknown>) => void;
 
-  // Selectors
-  getConnectedChannels: () => ChannelInfo[];
+
 }
 
 export const useChannelStore = create<ChannelStore>((set, get) => ({
@@ -81,6 +80,4 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
     }
   },
 
-  getConnectedChannels: () =>
-    get().channels.filter((c) => c.status === "connected"),
 }));

@@ -5,11 +5,17 @@ import { StatusDot } from "@/components/ui/StatusDot";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatRelativeTime, formatTokens, formatCost } from "@/lib/format";
 import type { Session } from "@/types/session";
+import { useShallow } from "zustand/react/shallow";
 
 interface SubagentListProps { agent: Agent; }
 
 export function SubagentList({ agent }: SubagentListProps) {
-  const sessions = useSessionStore((s) => s.getSessionsForAgent(agent.id));
+  const sessions = useSessionStore(useShallow((s) => {
+    const keys = s.byAgent.get(agent.id) || [];
+    return keys
+      .map((k) => s.sessions.get(k))
+      .filter((sess): sess is NonNullable<typeof sess> => sess !== undefined);
+  }));
   if (sessions.length === 0) {
     return <EmptyState icon="📋" title="No sessions yet" description="Start a chat to create a session." />;
   }

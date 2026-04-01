@@ -4,12 +4,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatCost, formatTokens, formatRelativeTime, formatDuration } from "@/lib/format";
+import { useShallow } from "zustand/react/shallow";
 
 interface AgentOverviewProps { agent: Agent; }
 
 export function AgentOverview({ agent }: AgentOverviewProps) {
-  const activeSessions = useSessionStore((s) => s.getActiveSessionsForAgent(agent.id));
-  const allSessions = useSessionStore((s) => s.getSessionsForAgent(agent.id));
+  const activeSessions = useSessionStore(useShallow((s) => {
+    const keys = s.byAgent.get(agent.id) || [];
+    return keys
+      .map((k) => s.sessions.get(k))
+      .filter((sess): sess is NonNullable<typeof sess> => sess !== undefined && sess.status === "active");
+  }));
+  const allSessions = useSessionStore(useShallow((s) => {
+    const keys = s.byAgent.get(agent.id) || [];
+    return keys
+      .map((k) => s.sessions.get(k))
+      .filter((sess): sess is NonNullable<typeof sess> => sess !== undefined);
+  }));
   const currentSession = activeSessions[0] ?? null;
 
   return (
