@@ -35,6 +35,7 @@ export function CreateAgentModal({ open, onClose }: CreateAgentModalProps) {
     try {
       const args = ["agents", "add", "--name", name.trim(), "--workspace", workspace.trim(), "--emoji", emoji];
       const result = await execCli(args);
+      if (result === null) throw new Error("Not running inside Tauri");
       if (result.exitCode !== 0) throw new Error(result.stderr || "Failed to create agent");
       addToast({ type: "success", message: `Agent "${name}" created` });
       await fetchAgents();

@@ -80,6 +80,18 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
         "agents",
         "list",
       ]);
+
+      // Tauri not available — surface a helpful message instead of crashing
+      if (rawAgents === null) {
+        set({
+          agents: new Map(),
+          loading: false,
+          error:
+            "Not running inside Tauri. Launch with 'npm run tauri dev'.",
+        });
+        return;
+      }
+
       const agentMap = new Map<string, Agent>();
       for (const raw of rawAgents) {
         const agent = parseAgentFromCli(raw);

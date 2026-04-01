@@ -22,6 +22,7 @@ export function DeleteConfirmModal({ open, onClose, agentId, agentName }: Delete
     setDeleting(true);
     try {
       const result = await execCli(["agents", "delete", agentId, "--yes"]);
+      if (result === null) throw new Error("Not running inside Tauri");
       if (result.exitCode !== 0) throw new Error(result.stderr || "Failed to delete agent");
       addToast({ type: "success", message: `Agent "${agentName}" deleted` });
       await fetchAgents();

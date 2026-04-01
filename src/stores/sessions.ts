@@ -51,6 +51,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       }
       const rawSessions = await execCliJson<Record<string, unknown>[]>(args);
 
+      // Tauri not available
+      if (rawSessions === null) {
+        set({ loading: false });
+        return;
+      }
+
       const sessions = new Map(get().sessions);
       const byAgent = new Map(get().byAgent);
 

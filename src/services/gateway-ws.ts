@@ -12,6 +12,7 @@ import type {
 } from "../types/gateway";
 import { useGatewayStore } from "../stores/gateway";
 import { startEventRouter } from "./gateway-event-router";
+import { isTauriAvailable } from "./tauri-commands";
 
 /** Whether listeners have already been initialized. */
 let initialized = false;
@@ -25,8 +26,17 @@ let unlisteners: UnlistenFn[] = [];
  * Sets up listeners for connection state changes and Gateway push events.
  * Guards against double-initialization (e.g., React strict mode in dev).
  * Returns a cleanup function that tears down all listeners.
+ *
+ * When Tauri is not available (plain browser) the function is a no-op
+ * and returns a no-op cleanup function so the rest of the app can render.
  */
 export async function initGatewayListeners(): Promise<() => void> {
+  // Guard: not inside Tauri
+  if (!isTauriAvailable()) {
+    console.warn("Tauri not available — skipping Gateway event listeners");
+    return () => {};
+  }
+
   // Guard against double-initialization
   if (initialized) {
     return () => cleanupGatewayListeners();

@@ -36,6 +36,12 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
         channels: Record<string, { status: string; error?: string }>;
       }>("health");
 
+      // Tauri not available
+      if (health === null) {
+        set({ channels: [], loading: false });
+        return;
+      }
+
       const channels: ChannelInfo[] = Object.entries(
         health.channels || {},
       ).map(([id, info]) => ({

@@ -44,6 +44,10 @@ export const useCronStore = create<CronStore>((set, get) => ({
     set({ loading: true });
     try {
       const result = await gatewayRpc<{ jobs: CronJob[] }>("cron.list");
+      if (result === null) {
+        set({ loading: false });
+        return;
+      }
       const jobMap = new Map<string, CronJob>();
       for (const job of result.jobs || []) {
         jobMap.set(job.id, job);
@@ -115,6 +119,7 @@ export const useCronStore = create<CronStore>((set, get) => ({
         id: jobId,
         limit,
       });
+      if (result === null) return;
       const runs = new Map(get().runs);
       runs.set(jobId, result.runs || []);
       set({ runs });

@@ -17,7 +17,7 @@ export function MemoryViewer({ agentId }: MemoryViewerProps) {
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
   const [dirFiles, setDirFiles] = useState<Map<string, FileEntry[]>>(new Map());
 
-  useEffect(() => { listWorkspaceFiles(agentId, ".").then(setFiles).catch(console.error); }, [agentId]);
+  useEffect(() => { listWorkspaceFiles(agentId, ".").then((f) => setFiles(f ?? [])).catch(console.error); }, [agentId]);
 
   useEffect(() => {
     if (!selectedFile) { setContent(null); return; }
@@ -33,7 +33,7 @@ export function MemoryViewer({ agentId }: MemoryViewerProps) {
       if (!dirFiles.has(dirName)) {
         try {
           const entries = await listWorkspaceFiles(agentId, dirName);
-          setDirFiles((prev) => new Map(prev).set(dirName, entries));
+          setDirFiles((prev) => new Map(prev).set(dirName, entries ?? []));
         } catch (err) { console.error("Failed to list dir:", err); }
       }
     }

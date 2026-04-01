@@ -12,9 +12,14 @@ import { useSessionStore } from "../stores/sessions";
 import { useCronStore } from "../stores/cron";
 import { useChannelStore } from "../stores/channels";
 import { useUIStore } from "../stores/ui";
+import { isTauriAvailable } from "./tauri-commands";
 
 /** Start listening for Gateway events and routing to stores. */
 export async function startEventRouter(): Promise<UnlistenFn> {
+  if (!isTauriAvailable()) {
+    console.warn("Tauri not available — skipping event router listener");
+    return () => {};
+  }
   return listen<GatewayEventPayload>("gateway:event", (event) => {
     const { event: eventType, data } = event.payload;
     routeEvent(eventType, data);
