@@ -61,7 +61,7 @@ fn read_token(state: &Arc<AppState>) -> Option<String> {
 }
 
 /// Client ID and mode constants for the connect frame.
-const CLIENT_ID: &str = "openclaw-dashboard";
+const CLIENT_ID: &str = "openclaw-macos";
 const CLIENT_VERSION: &str = "0.1.0";
 const CLIENT_PLATFORM: &str = "macos";
 const CLIENT_MODE: &str = "ui";
