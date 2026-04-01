@@ -3,6 +3,7 @@
 //! Manages the persistent WebSocket connection, handles message routing,
 //! and coordinates with the reconnection manager.
 
+use crate::device::DeviceIdentity;
 use crate::gateway::events;
 use crate::gateway::reconnect::ReconnectConfig;
 use crate::gateway::rpc::{self, IncomingMessage, RpcRequest};
@@ -59,31 +60,67 @@ fn read_token(state: &Arc<AppState>) -> Option<String> {
     }
 }
 
+/// Client ID and mode constants for the connect frame.
+const CLIENT_ID: &str = "openclaw-dashboard";
+const CLIENT_VERSION: &str = "0.1.0";
+const CLIENT_PLATFORM: &str = "macos";
+const CLIENT_MODE: &str = "ui";
+
 /// Build the connect request frame per the Gateway protocol.
-fn build_connect_frame(token: &str, nonce: Option<&str>) -> (String, String) {
+fn build_connect_frame(
+    token: &str,
+    nonce: Option<&str>,
+    identity: &DeviceIdentity,
+) -> (String, String) {
     let req_id = Uuid::new_v4().to_string();
-    let mut params = serde_json::json!({
+
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+
+    let scopes = ["operator.read", "operator.write"];
+    let nonce_str = nonce.unwrap_or_default();
+
+    // Sign the challenge with v3 payload format
+    let signature = identity.sign_challenge(
+        CLIENT_ID,
+        CLIENT_MODE,
+        "operator",
+        &scopes,
+        token,
+        nonce_str,
+        now_ms,
+        CLIENT_PLATFORM,
+        None, // deviceFamily
+    );
+
+    let params = serde_json::json!({
         "minProtocol": 3,
         "maxProtocol": 3,
         "client": {
-            "id": "openclaw-dashboard",
-            "version": "0.1.0",
-            "platform": "macos",
-            "mode": "operator"
+            "id": CLIENT_ID,
+            "version": CLIENT_VERSION,
+            "platform": CLIENT_PLATFORM,
+            "mode": CLIENT_MODE
         },
         "role": "operator",
-        "scopes": ["operator.read", "operator.write"],
+        "scopes": scopes,
         "caps": [],
         "commands": [],
         "permissions": {},
         "auth": { "token": token },
         "locale": "en-US",
-        "userAgent": "openclaw-dashboard/0.1.0"
+        "userAgent": format!("openclaw-dashboard/{CLIENT_VERSION}"),
+        "device": {
+            "id": identity.device_id,
+            "publicKey": identity.public_key_base64url(),
+            "signature": signature,
+            "signedAt": now_ms,
+            "nonce": nonce_str
+        }
     });
-    // Include challenge nonce if provided
-    if let Some(n) = nonce {
-        params["device"] = serde_json::json!({ "nonce": n });
-    }
+
     let frame = serde_json::json!({
         "type": "req",
         "id": req_id,
@@ -106,6 +143,19 @@ async fn connection_loop(
     // Store the initial token in state (it's already there from connect_gateway,
     // but keep a local copy for the first attempt)
     let mut first_token = Some(initial_token);
+
+    // Load or generate device identity (persisted to ~/.openclaw/dashboard-device-key)
+    let identity = match DeviceIdentity::load_or_create() {
+        Ok(id) => {
+            log::info!("Device identity loaded: {}", id.device_id);
+            id
+        }
+        Err(e) => {
+            log::error!("Failed to load/create device identity: {e}");
+            events::emit_disconnected(&app, &format!("Device identity error: {e}"), false);
+            return;
+        }
+    };
 
     loop {
         // Update state to connecting
@@ -215,7 +265,7 @@ async fn connection_loop(
 
         // Build and send the connect frame (BUG-001: correct protocol format)
         let (_connect_req_id, connect_json) =
-            build_connect_frame(&token, nonce.as_deref());
+            build_connect_frame(&token, nonce.as_deref(), &identity);
         if let Err(e) = write
             .send(Message::Text(connect_json.into()))
             .await

@@ -10,6 +10,7 @@
 //! - Log file tailing
 
 mod commands;
+pub mod device;
 mod gateway;
 mod keychain;
 mod state;
