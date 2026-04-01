@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import { useUIStore } from "@/stores/ui";
 import { useGatewayStore } from "@/stores/gateway";
 import { cn } from "@/lib/utils";
@@ -7,7 +8,9 @@ import { Button } from "@/components/ui/Button";
 
 export function Sidebar() {
   const { sidebarExpanded, toggleSidebar } = useUIStore();
+  const openModal = useUIStore((s) => s.openModal);
   const connectionState = useGatewayStore((state) => state.connectionState);
+  const navigate = useNavigate();
 
   return (
     <aside
@@ -34,7 +37,14 @@ export function Sidebar() {
               <div className="h-2 w-2 animate-pulse rounded-full bg-status-warning" />
             )}
             {connectionState === "disconnected" && (
-              <div className="h-2 w-2 rounded-full bg-status-error" />
+              <button
+                onClick={() => openModal({ type: "connection" })}
+                className="flex items-center gap-1 cursor-pointer hover:opacity-80"
+                title="Click to connect"
+              >
+                <div className="h-2 w-2 rounded-full bg-status-error" />
+                <span className="text-xs text-status-error">Disconnected</span>
+              </button>
             )}
           </div>
         )}
@@ -69,6 +79,7 @@ export function Sidebar() {
       {/* Footer - Settings */}
       <div className="border-t border-sidebar-border p-4">
         <button
+          onClick={() => navigate({ to: '/settings' })}
           className={cn(
             "flex w-full items-center rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-bg-hover text-text-secondary hover:text-text-primary",
             !sidebarExpanded && "w-8 justify-center p-0",
