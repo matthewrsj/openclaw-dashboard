@@ -5,8 +5,13 @@ use serde_json::Value;
 use uuid::Uuid;
 
 /// An RPC request to send to the Gateway.
+///
+/// Serializes with `"type": "req"` per the Gateway protocol.
 #[derive(Debug, Serialize)]
 pub struct RpcRequest {
+    /// Frame type — always "req" for requests.
+    #[serde(rename = "type")]
+    pub msg_type: String,
     /// Unique request identifier.
     pub id: String,
     /// The RPC method name (e.g., "health", "cron.list").
@@ -19,6 +24,7 @@ impl RpcRequest {
     /// Create a new RPC request with a generated UUID.
     pub fn new(method: String, params: Value) -> Self {
         Self {
+            msg_type: "req".to_string(),
             id: Uuid::new_v4().to_string(),
             method,
             params,
@@ -27,13 +33,18 @@ impl RpcRequest {
 }
 
 /// An RPC response received from the Gateway.
+///
+/// Matches the Gateway protocol: `{type:"res", id, ok, payload|error}`.
 #[derive(Debug, Deserialize)]
 pub struct RpcResponse {
     /// The request ID this response corresponds to.
     pub id: String,
+    /// Whether the request succeeded.
+    #[serde(default)]
+    pub ok: bool,
     /// The result payload (present on success).
-    pub result: Option<Value>,
-    /// Error message (present on failure).
+    pub payload: Option<Value>,
+    /// Error details (present on failure).
     pub error: Option<Value>,
 }
 
@@ -43,7 +54,8 @@ pub struct GatewayEvent {
     /// Event type name (e.g., "session.created", "agent.status").
     pub event: String,
     /// Event payload data.
-    pub data: Value,
+    #[serde(alias = "data")]
+    pub payload: Value,
 }
 
 /// Parsed incoming WebSocket message — either an RPC response or a push event.
@@ -57,23 +69,35 @@ pub enum IncomingMessage {
 
 /// Parse a raw JSON message from the Gateway into an `IncomingMessage`.
 ///
-/// Messages with an `id` field are treated as RPC responses.
-/// Messages with an `event` field are treated as push events.
-/// All other messages are logged and discarded.
+/// Uses the `type` field for discrimination: "res" → RPC response, "event" → push event.
+/// Falls back to heuristic (id → response, event field → event) for compatibility.
 pub fn parse_incoming(text: &str) -> Option<IncomingMessage> {
     let value: Value = serde_json::from_str(text).ok()?;
 
-    if value.get("id").is_some() {
-        // RPC response
-        let response: RpcResponse = serde_json::from_value(value).ok()?;
-        Some(IncomingMessage::RpcResponse(response))
-    } else if value.get("event").is_some() {
-        // Push event
-        let event: GatewayEvent = serde_json::from_value(value).ok()?;
-        Some(IncomingMessage::Event(event))
-    } else {
-        log::warn!("Unknown Gateway message format: {text}");
-        None
+    let msg_type = value.get("type").and_then(|t| t.as_str()).unwrap_or("");
+
+    match msg_type {
+        "res" => {
+            let response: RpcResponse = serde_json::from_value(value).ok()?;
+            Some(IncomingMessage::RpcResponse(response))
+        }
+        "event" => {
+            let event: GatewayEvent = serde_json::from_value(value).ok()?;
+            Some(IncomingMessage::Event(event))
+        }
+        _ => {
+            // Fallback heuristic for backward compatibility
+            if value.get("id").is_some() && (value.get("ok").is_some() || value.get("payload").is_some() || value.get("error").is_some()) {
+                let response: RpcResponse = serde_json::from_value(value).ok()?;
+                Some(IncomingMessage::RpcResponse(response))
+            } else if value.get("event").is_some() {
+                let event: GatewayEvent = serde_json::from_value(value).ok()?;
+                Some(IncomingMessage::Event(event))
+            } else {
+                log::warn!("Unknown Gateway message format: {text}");
+                None
+            }
+        }
     }
 }
 

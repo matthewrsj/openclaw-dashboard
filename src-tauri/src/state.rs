@@ -49,8 +49,6 @@ pub struct AppState {
     pub pending_rpcs: RwLock<HashMap<String, PendingRpc>>,
     /// Channel to send commands to the WebSocket manager task.
     pub ws_command_tx: RwLock<Option<mpsc::UnboundedSender<WsCommand>>>,
-    /// Cached agent workspace paths (agent_id → workspace_path).
-    pub workspace_cache: RwLock<HashMap<String, String>>,
     /// Reconnection attempt counter.
     pub reconnect_attempt: RwLock<u32>,
 }
@@ -64,7 +62,6 @@ impl AppState {
             auth_token: RwLock::new(None),
             pending_rpcs: RwLock::new(HashMap::new()),
             ws_command_tx: RwLock::new(None),
-            workspace_cache: RwLock::new(HashMap::new()),
             reconnect_attempt: RwLock::new(0),
         })
     }

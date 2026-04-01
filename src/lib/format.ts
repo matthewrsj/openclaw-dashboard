@@ -53,7 +53,8 @@ export function formatTokens(tokens: number): string {
 
 /** Format a cost in USD. */
 export function formatCost(usd: number): string {
-  if (usd < 0.01) return `$${(usd * 100).toFixed(2)}¢`;
+  if (usd === 0) return "$0.00";
+  if (usd < 0.01) return `${(usd * 100).toFixed(2)}¢`;
   return `$${usd.toFixed(2)}`;
 }
 

@@ -21,8 +21,22 @@ pub fn connect_gateway(
     token: String,
 ) -> Result<(), String> {
     let current = state.connection_state.read().clone();
-    if current == ConnectionState::Connected || current == ConnectionState::Connecting {
-        return Err("Already connected or connecting".to_string());
+    if current == ConnectionState::Connected
+        || current == ConnectionState::Connecting
+        || current == ConnectionState::Reconnecting
+    {
+        // Disconnect existing connection first if reconnecting
+        if current == ConnectionState::Reconnecting {
+            let ws_tx = state.ws_command_tx.read();
+            if let Some(tx) = ws_tx.as_ref() {
+                let _ = tx.send(WsCommand::Disconnect);
+            }
+            drop(ws_tx);
+            // Brief delay to let the old loop clean up
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        } else {
+            return Err("Already connected or connecting".to_string());
+        }
     }
 
     // Store credentials in state

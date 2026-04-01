@@ -118,6 +118,19 @@ function ConnectionSettings() {
   const setGatewayUrl = useSettingsStore((s) => s.setGatewayUrl);
   const connectionState = useGatewayStore((s) => s.connectionState);
   const openModal = useUIStore((s) => s.openModal);
+  const addToast = useUIStore((s) => s.addToast);
+
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newUrl = e.target.value;
+    const oldUrl = gatewayUrl;
+    setGatewayUrl(newUrl);
+    if (oldUrl !== newUrl && connectionState === "connected") {
+      addToast({
+        type: "warning",
+        message: "Gateway URL changed. Reconnect for the new URL to take effect.",
+      });
+    }
+  };
 
   return (
     <div className="max-w-lg space-y-6">
@@ -126,7 +139,7 @@ function ConnectionSettings() {
         id="settings-gw-url"
         label="Gateway URL"
         value={gatewayUrl}
-        onChange={(e) => setGatewayUrl(e.target.value)}
+        onChange={handleUrlChange}
       />
       <div className="flex items-center gap-3">
         <span className="text-sm text-text-secondary">

@@ -10,16 +10,24 @@ import type {
   Model,
 } from "../types/chat";
 
+/** Convert a WebSocket URL to its HTTP equivalent. */
+function wsToHttp(url: string): string {
+  return url.replace(/^wss:\/\//, "https://").replace(/^ws:\/\//, "http://");
+}
+
 /** Gateway HTTP client for REST API calls. */
 export class GatewayHttpClient {
-  constructor(
-    private baseUrl: string,
-    private token: string,
-  ) {}
+  private baseUrl: string;
+  private token: string;
+
+  constructor(baseUrl: string, token: string) {
+    this.baseUrl = wsToHttp(baseUrl);
+    this.token = token;
+  }
 
   /** Update the base URL. */
   setBaseUrl(url: string): void {
-    this.baseUrl = url;
+    this.baseUrl = wsToHttp(url);
   }
 
   /** Update the auth token. */
@@ -104,11 +112,12 @@ export function getHttpClient(
   baseUrl?: string,
   token?: string,
 ): GatewayHttpClient {
-  if (!httpClient && baseUrl && token) {
-    httpClient = new GatewayHttpClient(baseUrl, token);
+  if (!httpClient && baseUrl) {
+    // Initialize with whatever token we have (may be empty, updated later)
+    httpClient = new GatewayHttpClient(baseUrl, token || "");
   }
   if (!httpClient) {
-    throw new Error("HTTP client not initialized");
+    throw new Error("HTTP client not initialized — provide baseUrl");
   }
   if (baseUrl) httpClient.setBaseUrl(baseUrl);
   if (token) httpClient.setToken(token);
