@@ -82,4 +82,10 @@
 
   --color-input-bg: var(--input-bg);
   --color-input-border: var(--input-border);
+
+  --color-toast-bg: var(--toast-bg);
+  --color-toast-border: var(--toast-border);
+
+  --shadow-card: var(--card-shadow);
+  --shadow-toast: var(--toast-shadow);
 }
