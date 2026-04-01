@@ -1,0 +1,85 @@
+@import "tailwindcss";
+@import "./themes.css";
+@import "./animations.css";
+
+/* Base styles */
+@layer base {
+  html {
+    font-family:
+      -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+  }
+
+  /* Focus ring utility */
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--input-focus-ring);
+    outline-offset: 2px;
+  }
+
+  /* Monospace font for code/logs */
+  .font-mono {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", "Cascadia Code",
+      monospace;
+  }
+}
+
+/* Tailwind v4 theme extension via @theme inline */
+@theme inline {
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-tertiary: var(--bg-tertiary);
+  --color-bg-hover: var(--bg-hover);
+  --color-bg-active: var(--bg-active);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+
+  --color-border-primary: var(--border-primary);
+  --color-border-secondary: var(--border-secondary);
+
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-primary-hover: var(--accent-primary-hover);
+
+  --color-status-success: var(--status-success);
+  --color-status-warning: var(--status-warning);
+  --color-status-error: var(--status-error);
+  --color-status-info: var(--status-info);
+
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-border: var(--sidebar-border);
+
+  --color-card-bg: var(--card-bg);
+  --color-card-border: var(--card-border);
+
+  --color-input-bg: var(--input-bg);
+  --color-input-border: var(--input-border);
+}
