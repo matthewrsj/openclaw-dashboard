@@ -45,8 +45,8 @@ const emptySparkline = {
 function parseAgentFromCli(raw: Record<string, unknown>): Agent {
   return {
     id: (raw.id as string) || (raw.name as string) || "unknown",
-    name: (raw.name as string) || (raw.id as string) || "Unknown",
-    emoji: (raw.emoji as string) || "🤖",
+    name: (raw.identityName as string) || (raw.name as string) || (raw.id as string) || "Unknown",
+    emoji: (raw.identityEmoji as string) || (raw.emoji as string) || "🤖",
     workspace: (raw.workspace as string) || "",
     agentDir: (raw.agentDir as string) || (raw.dir as string) || "",
     model: (raw.model as string) || (raw.defaultModel as string) || "unknown",
