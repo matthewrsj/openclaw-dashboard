@@ -60,9 +60,13 @@ export function ChatView({ agentId }: ChatViewProps) {
       partialContent: "",
     });
 
+    // Register the pending run BEFORE sending the RPC.
+    // The idempotencyKey becomes the runId, and chat push events
+    // can arrive before the RPC response resolves.
+    useChatStore.getState().registerPendingRun(assistantId, sessionKey, assistantId);
+
     try {
       // Send via Gateway WebSocket RPC
-      // idempotencyKey becomes the runId for correlating chat events
       const result = await gatewayRpc<{
         ok?: boolean;
         runId?: string;
@@ -84,11 +88,6 @@ export function ChatView({ agentId }: ChatViewProps) {
       if (result.error) {
         throw new Error(result.error);
       }
-
-      // Register the run for event correlation.
-      // runId = idempotencyKey = assistantId
-      const runId = result.runId || assistantId;
-      useChatStore.getState().registerPendingRun(runId, sessionKey, assistantId);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       updateMessage(sessionKey, assistantId, {
@@ -96,11 +95,7 @@ export function ChatView({ agentId }: ChatViewProps) {
         error: errorMsg,
         content: "",
       });
-      setStreamingState(sessionKey, {
-        isStreaming: false,
-        abortController: null,
-        partialContent: "",
-      });
+      useChatStore.getState().cleanupPendingRun(assistantId, sessionKey);
     }
   }, [sessionKey, agentId, addMessage, updateMessage, setStreamingState]);
 
