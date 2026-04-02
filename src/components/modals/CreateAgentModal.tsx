@@ -6,7 +6,8 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { useUIStore } from "@/stores/ui";
 import { useAgentStore } from "@/stores/agents";
-import { execCli } from "@/services/tauri-commands";
+import { useModelStore } from "@/stores/models";
+import { execCli, writeWorkspaceFile } from "@/services/tauri-commands";
 
 /** Base path for agent workspaces. */
 const WORKSPACE_BASE = "~/.openclaw/workspace";
@@ -44,6 +45,8 @@ export function CreateAgentModal({ open, onClose }: CreateAgentModalProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const addToast = useUIStore((s) => s.addToast);
   const fetchAgents = useAgentStore((s) => s.fetchAgents);
+  const agentList = useAgentStore((s) => s.agentList);
+  const models = useModelStore((s) => s.models);
 
   const shuffleEmoji = useCallback(() => {
     setEmoji((prev) => pickRandomEmoji(prev));
@@ -77,6 +80,21 @@ export function CreateAgentModal({ open, onClose }: CreateAgentModalProps) {
 
       addToast({ type: "success", message: `Agent "${name}" created` });
       await fetchAgents();
+
+      // Write SOUL.md if the user provided identity content (best-effort)
+      if (soul.trim()) {
+        const createdAgent = agentList.find((a) => a.name === name.trim());
+        if (createdAgent) {
+          try {
+            await writeWorkspaceFile(createdAgent.id, "SOUL.md", soul.trim());
+          } catch (soulErr) {
+            console.warn("Failed to write SOUL.md:", soulErr);
+          }
+        } else {
+          console.warn("Could not find newly created agent to write SOUL.md");
+        }
+      }
+
       onClose();
     } catch (err) {
       addToast({ type: "error", message: err instanceof Error ? err.message : String(err) });
@@ -135,10 +153,11 @@ export function CreateAgentModal({ open, onClose }: CreateAgentModalProps) {
             <p className="mt-1 text-xs text-status-error">{errors.workspace}</p>
           )}
         </div>
-        <Select id="new-agent-model" label="Default Model" value={model} onChange={(e) => setModel(e.target.value)}>
-          <option value="claude-opus-4-6">claude-opus-4-6</option>
-          <option value="claude-sonnet-4-20250514">claude-sonnet-4-20250514</option>
-          <option value="gpt-4o">gpt-4o</option>
+        <Select id="new-agent-model" label="Default Model" value={model}
+          onChange={(e) => setModel(e.target.value)}>
+          {models.map((m) => (
+            <option key={m.id} value={m.id}>{m.id}</option>
+          ))}
         </Select>
         <Textarea id="new-agent-soul" label="Identity / SOUL" value={soul} onChange={(e) => setSoul(e.target.value)} placeholder="Describe this agent's persona…" rows={4} />
       </div>
