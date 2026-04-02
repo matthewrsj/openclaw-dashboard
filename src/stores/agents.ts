@@ -120,6 +120,11 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
           const now = Date.now();
           const fiveMinMs = 5 * 60 * 1000;
 
+          // Calculate start of today (local midnight) for filtering daily metrics
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+          const todayStartMs = todayStart.getTime();
+
           // Group sessions by agentId
           const sessionsByAgent = new Map<string, any[]>();
           for (const s of statusData.sessions.recent) {
@@ -141,12 +146,17 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
             const lastUpdate = mostRecent.updatedAt as number;
             const isActive = lastUpdate && (now - lastUpdate) < fiveMinMs;
 
-            // Sum tokens across all sessions for this agent
+            // Sum tokens only from sessions created or updated today
             let totalInput = 0;
             let totalOutput = 0;
             for (const s of sessions) {
-              totalInput += (s.inputTokens as number) || 0;
-              totalOutput += (s.outputTokens as number) || 0;
+              const sessionCreated = (s.createdAt as number) || 0;
+              const sessionUpdated = (s.updatedAt as number) || 0;
+              // Include session if it was active today (created or last updated today)
+              if (sessionCreated >= todayStartMs || sessionUpdated >= todayStartMs) {
+                totalInput += (s.inputTokens as number) || 0;
+                totalOutput += (s.outputTokens as number) || 0;
+              }
             }
 
             // Estimate cost (Claude Opus: ~$15/M input, ~$75/M output)

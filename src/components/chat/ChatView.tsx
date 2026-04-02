@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import { useChatStore } from "@/stores/chat";
 import { useAgentStore } from "@/stores/agents";
 import { useSettingsStore } from "@/stores/settings";
@@ -17,8 +17,9 @@ interface ChatViewProps {
 export function ChatView({ agentId }: ChatViewProps) {
   const agent = useAgentStore((s) => s.agents.get(agentId));
   const sessionKey = agent?.activeSessionKey || `agent:${agentId}:main`;
-  const messages = useChatStore((s) => s.messages.get(sessionKey) || []);
-  const isStreaming = useChatStore((s) => s.streamingState.get(sessionKey)?.isStreaming || false);
+  const messagesRaw = useChatStore((s) => s.messages.get(sessionKey));
+  const messages = useMemo(() => messagesRaw ?? [], [messagesRaw]);
+  const isStreaming = useChatStore((s) => s.streamingState.get(sessionKey)?.isStreaming ?? false);
   const addMessage = useChatStore((s) => s.addMessage);
   const updateMessage = useChatStore((s) => s.updateMessage);
   const setStreamingState = useChatStore((s) => s.setStreamingState);

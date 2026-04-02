@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useCronStore } from "@/stores/cron";
 import { useAgentStore } from "@/stores/agents";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -13,7 +13,8 @@ interface CronDetailProps { jobId: string; }
 
 export function CronDetail({ jobId }: CronDetailProps) {
   const job = useCronStore((s) => s.jobs.get(jobId));
-  const runs = useCronStore((s) => s.runs.get(jobId) || []);
+  const runsRaw = useCronStore((s) => s.runs.get(jobId));
+  const runs = useMemo(() => runsRaw ?? [], [runsRaw]);
   const fetchRuns = useCronStore((s) => s.fetchRuns);
   const runJob = useCronStore((s) => s.runJob);
   const agent = useAgentStore((s) => (job ? s.agents.get(job.agentId) : undefined));
