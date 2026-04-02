@@ -26,6 +26,15 @@ const THINKING_VERBS = [
   "Weighing options",
 ];
 
+/**
+ * Preserve blank lines in markdown by replacing empty lines with a
+ * non-breaking space. Without this, ReactMarkdown collapses consecutive
+ * newlines into a single paragraph break.
+ */
+function preserveBlankLines(text: string): string {
+  return text.replace(/\n\n/g, "\n\n&nbsp;\n\n");
+}
+
 /** Animated placeholder while the agent is thinking (no content yet). */
 function ThinkingIndicator({ agentName: _agentName }: { agentName?: string }) {
   const [verbIndex, setVerbIndex] = useState(
@@ -91,7 +100,7 @@ export const ChatMessage = memo(function ChatMessage({
         {message.status === "streaming" && !message.content ? (
           <ThinkingIndicator agentName={agentName} />
         ) : (
-          <div className="prose prose-sm max-w-none text-text-primary [&>*+*]:mt-3 [&_p]:my-2 [&_br]:block [&_br]:content-[''] [&_br]:mt-2">
+          <div className="prose prose-sm max-w-none text-text-primary [&>*+*]:mt-3 [&_p]:my-2 [&_br]:block [&_br]:content-[''] [&_br]:mt-2 [&_p:empty]:h-4">
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkBreaks]}
               rehypePlugins={[rehypeSanitize, rehypeHighlight]}
@@ -132,7 +141,7 @@ export const ChatMessage = memo(function ChatMessage({
                 ),
               }}
             >
-              {message.content}
+              {preserveBlankLines(message.content)}
             </ReactMarkdown>
           </div>
         )}
