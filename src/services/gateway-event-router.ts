@@ -9,6 +9,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { GatewayEventPayload } from "../types/gateway";
 import { useAgentStore } from "../stores/agents";
 import { useSessionStore } from "../stores/sessions";
+import { useChatStore } from "../stores/chat";
 import { useCronStore } from "../stores/cron";
 import { useChannelStore } from "../stores/channels";
 import { useUIStore } from "../stores/ui";
@@ -55,6 +56,15 @@ function routeEvent(
     case "cron.run.started":
     case "cron.run.completed":
       useCronStore.getState().handleCronEvent(eventType, data);
+      break;
+
+    // Chat streaming events
+    case "chat":
+    case "chat.delta":
+    case "chat.done":
+    case "chat.error":
+    case "chat.message":
+      useChatStore.getState().handleChatEvent(data);
       break;
 
     // Channel status

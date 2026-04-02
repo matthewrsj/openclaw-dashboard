@@ -1,14 +1,11 @@
 import { useEffect, useRef, useCallback, useMemo } from "react";
 import { useChatStore } from "@/stores/chat";
 import { useAgentStore } from "@/stores/agents";
-import { useSettingsStore } from "@/stores/settings";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { uniqueId } from "@/lib/utils";
-import { getHttpClient } from "@/services/gateway-http";
-import { getToken } from "@/services/tauri-commands";
-import type { ChatCompletionRequest } from "@/types/chat";
+import { gatewayRpc } from "@/services/tauri-commands";
 
 interface ChatViewProps {
   agentId: string;
@@ -26,15 +23,14 @@ export function ChatView({ agentId }: ChatViewProps) {
   const setStreamingState = useChatStore((s) => s.setStreamingState);
   const draft = useChatStore((s) => s.drafts.get(agentId) || "");
   const setDraft = useChatStore((s) => s.setDraft);
-  const gatewayUrl = useSettingsStore((s) => s.gatewayUrl);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages or content changes
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages.length]);
+  }, [messages]);
 
   const handleSend = useCallback(async (content: string) => {
     // Add user message immediately (optimistic)
@@ -58,67 +54,51 @@ export function ChatView({ agentId }: ChatViewProps) {
       status: "streaming",
     });
 
-    // Stream the response from the Gateway HTTP API
-    const abortController = new AbortController();
     setStreamingState(sessionKey, {
       isStreaming: true,
-      abortController,
+      abortController: null,
       partialContent: "",
     });
 
-    let accumulated = "";
+    // Store the assistant message ID so the event router can update it
+    useChatStore.getState().setPendingAssistantId(sessionKey, assistantId);
+
     try {
-      const token = await getToken() || "";
-      const client = getHttpClient(gatewayUrl, token);
+      // Send via Gateway WebSocket RPC
+      const result = await gatewayRpc<{ ok: boolean; error?: string }>(
+        "chat.send",
+        {
+          agentId,
+          sessionKey,
+          message: content,
+        },
+      );
 
-      // Build the messages array from session history
-      const currentMessages = useChatStore.getState().messages.get(sessionKey) || [];
-      const apiMessages = currentMessages
-        .filter((m) => m.role === "user" || m.role === "assistant")
-        .filter((m) => m.id !== assistantId) // exclude the empty placeholder
-        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
-
-      const request: ChatCompletionRequest = {
-        model: "default",
-        messages: apiMessages,
-        stream: true,
-        agent_id: agentId,
-        session_key: sessionKey,
-      };
-
-      for await (const chunk of client.streamChatCompletion(request, abortController.signal)) {
-        const delta = chunk.choices?.[0]?.delta?.content;
-        if (delta) {
-          accumulated += delta;
-          updateMessage(sessionKey, assistantId, { content: accumulated });
-          setStreamingState(sessionKey, { partialContent: accumulated });
-        }
-
-        if (chunk.choices?.[0]?.finish_reason) {
-          break;
-        }
+      if (result === null) {
+        throw new Error("Gateway not connected");
       }
 
-      updateMessage(sessionKey, assistantId, { status: "sent", content: accumulated });
+      // The RPC returns once the message is accepted. Actual response
+      // content arrives via "chat" push events handled by the event router.
+      // If the RPC itself returned an error, surface it.
+      if (result.error) {
+        throw new Error(result.error);
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      if (abortController.signal.aborted) {
-        updateMessage(sessionKey, assistantId, { status: "sent" });
-      } else {
-        updateMessage(sessionKey, assistantId, {
-          status: "error",
-          error: errorMsg,
-          content: accumulated || "",
-        });
-      }
-    } finally {
+      updateMessage(sessionKey, assistantId, {
+        status: "error",
+        error: errorMsg,
+        content: "",
+      });
       setStreamingState(sessionKey, {
         isStreaming: false,
         abortController: null,
         partialContent: "",
       });
+      useChatStore.getState().setPendingAssistantId(sessionKey, null);
     }
-  }, [sessionKey, agentId, gatewayUrl, addMessage, updateMessage, setStreamingState]);
+  }, [sessionKey, agentId, addMessage, updateMessage, setStreamingState]);
 
   return (
     <div className="flex h-full flex-col">
