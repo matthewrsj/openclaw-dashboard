@@ -3,6 +3,10 @@
  *
  * Listens for `gateway:event` Tauri events and dispatches them
  * to the appropriate Zustand stores for state updates.
+ *
+ * HMR-safe: the listener calls through a mutable `currentRouter` ref
+ * that gets updated when the module is hot-replaced, so store changes
+ * take effect without a full app restart.
  */
 
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -16,15 +20,24 @@ import { useChannelStore } from "../stores/channels";
 import { useUIStore } from "../stores/ui";
 import { isTauriAvailable } from "./tauri-commands";
 
+/**
+ * Mutable router reference. The listener closure reads this on every event,
+ * so HMR module replacement updates the routing logic without re-registering
+ * the Tauri event listener.
+ */
+let currentRouter: (eventType: string, data: Record<string, unknown>) => void = routeEvent;
+
 /** Start listening for Gateway events and routing to stores. */
 export async function startEventRouter(): Promise<UnlistenFn> {
   if (!isTauriAvailable()) {
     console.warn("Tauri not available — skipping event router listener");
     return () => {};
   }
+
+  // The listener calls through the mutable ref — always uses latest routeEvent
   return listen<GatewayEventPayload>("gateway:event", (event) => {
     const { event: eventType, data } = event.payload;
-    routeEvent(eventType, data);
+    currentRouter(eventType, data);
   });
 }
 
@@ -34,7 +47,6 @@ function routeEvent(
   data: Record<string, unknown>,
 ): void {
   // Any event arriving proves the connection is alive.
-  // Fix stale "disconnected" status if we're receiving events.
   const gw = useGatewayStore.getState();
   if (gw.connectionState !== "connected") {
     gw.setConnectionState("connected");
@@ -101,6 +113,17 @@ function routeEvent(
       break;
 
     default:
+      // Silently ignore known high-frequency events
+      if (eventType === "tick" || eventType === "presence" || eventType === "health") break;
       console.warn(`Unhandled Gateway event: ${eventType}`, data);
   }
+}
+
+// Update the mutable ref on every module evaluation (including HMR)
+currentRouter = routeEvent;
+
+// Vite HMR: accept self-updates so HMR replaces this module in-place
+// and the `currentRouter = routeEvent` line above runs with the new code.
+if (import.meta.hot) {
+  import.meta.hot.accept();
 }

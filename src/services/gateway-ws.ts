@@ -2,6 +2,8 @@
  * Frontend-side WebSocket event listener.
  *
  * Bridges Tauri backend events to the frontend stores via the event router.
+ * HMR-safe: connection state handlers read from stores at call time,
+ * not at registration time.
  */
 
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -23,34 +25,27 @@ let unlisteners: UnlistenFn[] = [];
 /**
  * Initialize all Gateway event listeners.
  *
- * Sets up listeners for connection state changes and Gateway push events.
- * Guards against double-initialization (e.g., React strict mode in dev).
- * Returns a cleanup function that tears down all listeners.
- *
- * When Tauri is not available (plain browser) the function is a no-op
- * and returns a no-op cleanup function so the rest of the app can render.
+ * HMR-safe: handlers call `useGatewayStore.getState()` at invocation time
+ * rather than capturing the store at registration time.
  */
 export async function initGatewayListeners(): Promise<() => void> {
-  // Guard: not inside Tauri
   if (!isTauriAvailable()) {
     console.warn("Tauri not available — skipping Gateway event listeners");
     return () => {};
   }
 
-  // Guard against double-initialization
   if (initialized) {
     return () => cleanupGatewayListeners();
   }
   initialized = true;
 
-  const gateway = useGatewayStore.getState();
-
-  // Connection established
+  // Connection established — read store fresh each time
   const unlistenConnected = await listen<ConnectionEventPayload>(
     "gateway:connected",
     (event) => {
-      gateway.setConnectionState("connected");
-      gateway.setLastError(null);
+      const gw = useGatewayStore.getState();
+      gw.setConnectionState("connected");
+      gw.setLastError(null);
       console.info(`Gateway connected: ${event.payload.url}`);
     },
   );
@@ -60,11 +55,10 @@ export async function initGatewayListeners(): Promise<() => void> {
   const unlistenDisconnected = await listen<DisconnectEventPayload>(
     "gateway:disconnected",
     (event) => {
+      const gw = useGatewayStore.getState();
       const { reason, willRetry } = event.payload;
-      gateway.setConnectionState(
-        willRetry ? "reconnecting" : "disconnected",
-      );
-      gateway.setLastError(reason);
+      gw.setConnectionState(willRetry ? "reconnecting" : "disconnected");
+      gw.setLastError(reason);
       console.info(`Gateway disconnected: ${reason} (retry: ${willRetry})`);
     },
   );
@@ -74,8 +68,9 @@ export async function initGatewayListeners(): Promise<() => void> {
   const unlistenReconnecting = await listen<ReconnectingEventPayload>(
     "gateway:reconnecting",
     (event) => {
-      gateway.setConnectionState("reconnecting");
-      gateway.setReconnectAttempt(event.payload.attempt);
+      const gw = useGatewayStore.getState();
+      gw.setConnectionState("reconnecting");
+      gw.setReconnectAttempt(event.payload.attempt);
     },
   );
   unlisteners.push(unlistenReconnecting);
