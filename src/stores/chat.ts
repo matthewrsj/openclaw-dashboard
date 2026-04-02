@@ -351,32 +351,46 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!msg) return;
 
     const role = (msg.role as string) || "assistant";
-    // Skip if this is a message we're already tracking via pendingRuns (our own sends)
+
+    // Only show user and assistant messages
+    if (role !== "user" && role !== "assistant") return;
+
     const messageId = (data.messageId as string) || (msg.id as string) || "";
     const store = get();
 
-    // Check if this message already exists (avoid duplicates with our optimistic adds)
-    const existing = store.messages.get(sessionKey) || [];
-    if (messageId && existing.some((m) => m.id === messageId)) return;
-
-    // Also skip if we have an active pending run for this session — those are handled by handleChatEvent
+    // Skip assistant messages if we have an active pending run (handled by handleChatEvent)
     const hasPendingRun = Array.from(store.pendingRuns.values()).some(
       (p) => p.sessionKey === sessionKey,
     );
     if (hasPendingRun && role === "assistant") return;
 
-    // Extract text content
+    // Skip user messages that we sent ourselves (optimistic add already in the list).
+    // Match by content + recency: if a message with the same text was added in the
+    // last 10 seconds, it's a duplicate of our optimistic add.
     const text = extractTextFromMessage(msg);
     if (text === null || !text.trim()) return;
 
-    // Only show user and assistant messages
-    if (role !== "user" && role !== "assistant") return;
+    // Strip inbound metadata envelope if present (starts with "Sender (untrusted metadata):")
+    const cleanText = text.replace(/^Sender \(untrusted metadata\):[\s\S]*?\n\n\[.*?\]\s*/m, "").trim();
+    if (!cleanText) return;
+
+    const existing = store.messages.get(sessionKey) || [];
+
+    // Dedup by messageId
+    if (messageId && existing.some((m) => m.id === messageId)) return;
+
+    // Dedup by content + recency (for optimistic adds that have different IDs)
+    const now = Date.now();
+    const isDuplicate = existing.some(
+      (m) => m.role === role && m.content === cleanText && now - m.timestamp < 10_000,
+    );
+    if (isDuplicate) return;
 
     get().addMessage(sessionKey, {
       id: messageId || uniqueId("live-"),
       sessionKey,
       role: role as "user" | "assistant",
-      content: text,
+      content: cleanText,
       timestamp: (msg.timestamp as number) || Date.now(),
       status: "sent",
     });
