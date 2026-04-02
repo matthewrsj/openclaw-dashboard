@@ -61,10 +61,20 @@ export function CreateAgentModal({ open, onClose }: CreateAgentModalProps) {
     if (!validate()) return;
     setSubmitting(true);
     try {
-      const args = ["agents", "add", "--name", name.trim(), "--workspace", workspace.trim(), "--emoji", emoji];
-      const result = await execCli(args);
-      if (result === null) throw new Error("Not running inside Tauri");
-      if (result.exitCode !== 0) throw new Error(result.stderr || "Failed to create agent");
+      // Create the agent (name is positional, not --name)
+      const addArgs = ["agents", "add", name.trim(), "--workspace", workspace.trim(), "--non-interactive"];
+      if (model) addArgs.push("--model", model);
+      const addResult = await execCli(addArgs);
+      if (addResult === null) throw new Error("Not running inside Tauri");
+      if (addResult.exitCode !== 0) throw new Error(addResult.stderr || "Failed to create agent");
+
+      // Set emoji via set-identity (separate command)
+      const idArgs = ["agents", "set-identity", name.trim(), "--emoji", emoji];
+      const idResult = await execCli(idArgs);
+      if (idResult && idResult.exitCode !== 0) {
+        console.warn("Failed to set emoji:", idResult.stderr);
+      }
+
       addToast({ type: "success", message: `Agent "${name}" created` });
       await fetchAgents();
       onClose();
