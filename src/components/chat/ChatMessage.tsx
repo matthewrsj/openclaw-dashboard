@@ -1,6 +1,7 @@
 import { memo, useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import rehypeHighlight from "rehype-highlight";
 import rehypeSanitize from "rehype-sanitize";
 import type { ChatMessage as ChatMessageType } from "@/types/chat";
@@ -90,9 +91,9 @@ export const ChatMessage = memo(function ChatMessage({
         {message.status === "streaming" && !message.content ? (
           <ThinkingIndicator agentName={agentName} />
         ) : (
-          <div className="prose prose-sm max-w-none text-text-primary">
+          <div className="prose prose-sm max-w-none text-text-primary [&>*+*]:mt-3 [&_p]:my-2 [&_br]:block [&_br]:content-[''] [&_br]:mt-2">
             <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
+              remarkPlugins={[remarkGfm, remarkBreaks]}
               rehypePlugins={[rehypeSanitize, rehypeHighlight]}
               components={{
                 pre: ({ children, ...props }) => (
