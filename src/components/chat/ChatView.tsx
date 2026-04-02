@@ -68,9 +68,9 @@ export function ChatView({ agentId }: ChatViewProps) {
       const result = await gatewayRpc<{ ok: boolean; error?: string }>(
         "chat.send",
         {
-          agentId,
           sessionKey,
           message: content,
+          idempotencyKey: assistantId,
         },
       );
 

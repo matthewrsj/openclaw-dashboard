@@ -58,12 +58,8 @@ function routeEvent(
       useCronStore.getState().handleCronEvent(eventType, data);
       break;
 
-    // Chat streaming events
+    // Chat streaming events (single "chat" event with state: delta|final|aborted|error)
     case "chat":
-    case "chat.delta":
-    case "chat.done":
-    case "chat.error":
-    case "chat.message":
       useChatStore.getState().handleChatEvent(data);
       break;
 

@@ -7,7 +7,6 @@
 
 import { create } from "zustand";
 import type { ChatMessage, StreamingState } from "../types/chat";
-import { uniqueId } from "../lib/utils";
 
 interface ChatStore {
   /** Map of session key → messages. */
@@ -128,31 +127,45 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   handleChatEvent: (data: Record<string, unknown>) => {
-    const sessionKey = (data.sessionKey as string) || (data.key as string) || "";
+    const sessionKey = (data.sessionKey as string) || "";
     if (!sessionKey) return;
 
-    const eventKind = (data.kind as string) || (data.type as string) || "";
-    const content = (data.content as string) || (data.delta as string) || "";
+    // Gateway ChatEvent schema: { runId, sessionKey, seq, state, message?, errorMessage?, usage?, stopReason? }
+    const state = (data.state as string) || "";
     const store = get();
     const assistantId = store.pendingAssistantIds.get(sessionKey);
 
-    if (eventKind === "delta" || eventKind === "chunk" || eventKind === "token") {
-      // Streaming token — append to the pending assistant message
+    if (state === "delta") {
+      // Streaming token — the message field contains the delta content
       if (!assistantId) return;
+      const msg = data.message as Record<string, unknown> | undefined;
+      const delta = typeof msg === "object" && msg
+        ? (msg.content as string) || ""
+        : typeof data.message === "string"
+          ? (data.message as string)
+          : "";
+      if (!delta) return;
+
       const sessionMessages = store.messages.get(sessionKey) || [];
-      const msg = sessionMessages.find((m) => m.id === assistantId);
-      const accumulated = (msg?.content || "") + content;
+      const existing = sessionMessages.find((m) => m.id === assistantId);
+      const accumulated = (existing?.content || "") + delta;
 
       get().updateMessage(sessionKey, assistantId, { content: accumulated });
       get().setStreamingState(sessionKey, { partialContent: accumulated });
-    } else if (eventKind === "done" || eventKind === "complete" || eventKind === "end") {
-      // Stream finished
+    } else if (state === "final") {
+      // Stream finished — message field may contain the full final message
       if (assistantId) {
-        // If a final content payload is included, use it
-        if (content) {
+        const msg = data.message as Record<string, unknown> | undefined;
+        const finalContent = typeof msg === "object" && msg
+          ? (msg.content as string) || undefined
+          : typeof data.message === "string"
+            ? (data.message as string)
+            : undefined;
+
+        if (finalContent !== undefined) {
           get().updateMessage(sessionKey, assistantId, {
             status: "sent",
-            content,
+            content: finalContent,
           });
         } else {
           get().updateMessage(sessionKey, assistantId, { status: "sent" });
@@ -164,9 +177,20 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         abortController: null,
         partialContent: "",
       });
-    } else if (eventKind === "error") {
+    } else if (state === "aborted") {
+      // Run was aborted (e.g., user sent /stop)
+      if (assistantId) {
+        get().updateMessage(sessionKey, assistantId, { status: "sent" });
+        get().setPendingAssistantId(sessionKey, null);
+      }
+      get().setStreamingState(sessionKey, {
+        isStreaming: false,
+        abortController: null,
+        partialContent: "",
+      });
+    } else if (state === "error") {
       // Stream error
-      const errorMsg = (data.error as string) || (data.message as string) || "Unknown error";
+      const errorMsg = (data.errorMessage as string) || "Unknown error";
       if (assistantId) {
         get().updateMessage(sessionKey, assistantId, {
           status: "error",
@@ -179,31 +203,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         abortController: null,
         partialContent: "",
       });
-    } else if (eventKind === "message") {
-      // Full message (non-streaming) or a message from another participant
-      const role = (data.role as "user" | "assistant" | "system") || "assistant";
-      if (assistantId && role === "assistant") {
-        get().updateMessage(sessionKey, assistantId, {
-          status: "sent",
-          content,
-        });
-        get().setPendingAssistantId(sessionKey, null);
-        get().setStreamingState(sessionKey, {
-          isStreaming: false,
-          abortController: null,
-          partialContent: "",
-        });
-      } else {
-        // External message (e.g., from another channel) — append to history
-        get().addMessage(sessionKey, {
-          id: (data.id as string) || uniqueId("msg-"),
-          sessionKey,
-          role,
-          content,
-          timestamp: (data.timestamp as number) || Date.now(),
-          status: "sent",
-        });
-      }
     }
   },
 
