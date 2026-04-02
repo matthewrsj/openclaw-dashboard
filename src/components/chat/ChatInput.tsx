@@ -1,4 +1,33 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+
+/** Hook that returns elapsed seconds since `active` became true. Resets on false. */
+function useElapsedTimer(active: boolean): number {
+  const [elapsed, setElapsed] = useState(0);
+  const startRef = useRef(0);
+
+  useEffect(() => {
+    if (!active) {
+      setElapsed(0);
+      return;
+    }
+    startRef.current = Date.now();
+    setElapsed(0);
+    const interval = setInterval(() => {
+      setElapsed(Date.now() - startRef.current);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [active]);
+
+  return elapsed;
+}
+
+function formatDuration(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const minutes = Math.floor(totalSec / 60);
+  const seconds = totalSec % 60;
+  return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
+}
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { useSettingsStore } from "@/stores/settings";
@@ -25,6 +54,7 @@ export function ChatInput({
   const [value, setValue] = useState(draft);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const enterToSend = useSettingsStore((s) => s.enterToSend);
+  const streamingElapsed = useElapsedTimer(isStreaming);
 
   // Per-session queue from store
   const queueRaw = useChatStore((s) => s.messageQueues.get(sessionKey));
@@ -87,11 +117,12 @@ export function ChatInput({
 
   return (
     <div className="border-t border-border-primary bg-bg-primary">
-      {/* Streaming indicator */}
+      {/* Streaming indicator with timer */}
       {isStreaming && (
         <div className="flex items-center gap-2 px-4 pt-2 text-xs text-accent-primary">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent-primary animate-pulse" />
-          Streaming…
+          <span>Streaming</span>
+          <span className="tabular-nums text-text-tertiary">{formatDuration(streamingElapsed)}</span>
         </div>
       )}
 
