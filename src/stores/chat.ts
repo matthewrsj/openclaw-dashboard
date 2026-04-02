@@ -52,6 +52,8 @@ interface ChatStore {
   scrollPositions: Map<string, number>;
   /** Map of session key → streaming state. */
   streamingState: Map<string, StreamingState>;
+  /** Map of session key → queued messages. */
+  messageQueues: Map<string, string[]>;
   /** Currently active agent ID for chat. */
   activeAgentId: string | null;
   /** Map of session key → pending assistant message ID (awaiting streamed response). */
@@ -81,6 +83,14 @@ interface ChatStore {
   setActiveAgentId: (agentId: string | null) => void;
   /** Clear messages for a session. */
   clearMessages: (sessionKey: string) => void;
+  /** Queue a message for a session (sent when streaming ends). */
+  enqueueMessage: (sessionKey: string, message: string) => void;
+  /** Remove a queued message by index. */
+  dequeueMessage: (sessionKey: string, index: number) => void;
+  /** Clear all queued messages for a session. */
+  clearQueue: (sessionKey: string) => void;
+  /** Flush the queue for a session (returns combined message or null). */
+  flushQueue: (sessionKey: string) => string | null;
   /** Track the pending assistant message ID for streaming updates. */
   setPendingAssistantId: (sessionKey: string, messageId: string | null) => void;
   /** Register a pending run for correlating chat events by runId. */
@@ -100,6 +110,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   drafts: new Map(),
   scrollPositions: new Map(),
   streamingState: new Map(),
+  messageQueues: new Map(),
   activeAgentId: null,
   pendingAssistantIds: new Map(),
   pendingRuns: new Map(),
@@ -161,6 +172,37 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const messages = new Map(get().messages);
     messages.delete(sessionKey);
     set({ messages });
+  },
+
+  enqueueMessage: (sessionKey: string, message: string) => {
+    const queues = new Map(get().messageQueues);
+    const q = [...(queues.get(sessionKey) || []), message];
+    queues.set(sessionKey, q);
+    set({ messageQueues: queues });
+  },
+
+  dequeueMessage: (sessionKey: string, index: number) => {
+    const queues = new Map(get().messageQueues);
+    const q = [...(queues.get(sessionKey) || [])];
+    q.splice(index, 1);
+    if (q.length === 0) queues.delete(sessionKey);
+    else queues.set(sessionKey, q);
+    set({ messageQueues: queues });
+  },
+
+  clearQueue: (sessionKey: string) => {
+    const queues = new Map(get().messageQueues);
+    queues.delete(sessionKey);
+    set({ messageQueues: queues });
+  },
+
+  flushQueue: (sessionKey: string) => {
+    const queues = new Map(get().messageQueues);
+    const q = queues.get(sessionKey);
+    if (!q || q.length === 0) return null;
+    queues.delete(sessionKey);
+    set({ messageQueues: queues });
+    return q.join("\n\n");
   },
 
   setPendingAssistantId: (sessionKey: string, messageId: string | null) => {

@@ -143,6 +143,7 @@ export function ChatView({ agentId }: ChatViewProps) {
         onSend={handleSend}
         onStop={handleStop}
         isStreaming={isStreaming}
+        sessionKey={sessionKey}
         draft={draft}
         onDraftChange={(text) => setDraft(agentId, text)}
       />
