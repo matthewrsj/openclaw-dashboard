@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useChannelStore, type ChannelBinding } from "@/stores/channels";
 import { useAgentStore } from "@/stores/agents";
 import { useUIStore } from "@/stores/ui";
@@ -239,8 +239,10 @@ export function ChannelOverview() {
   const unbindAccount = useChannelStore((s) => s.unbindAccount);
   const addToast = useUIStore((s) => s.addToast);
 
-  const agentList = useAgentStore((s) =>
-    s.agentList.map((a) => ({ id: a.id, name: a.name, emoji: a.emoji })),
+  const rawAgentList = useAgentStore((s) => s.agentList);
+  const agentList = useMemo(
+    () => rawAgentList.map((a) => ({ id: a.id, name: a.name, emoji: a.emoji })),
+    [rawAgentList],
   );
 
   useEffect(() => {
