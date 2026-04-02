@@ -105,6 +105,14 @@ export function ChatView({ agentId }: ChatViewProps) {
     }
   }, [sessionKey, agentId, addMessage, updateMessage, setStreamingState]);
 
+  const handleStop = useCallback(async () => {
+    try {
+      await gatewayRpc("chat.abort", { sessionKey });
+    } catch (err) {
+      console.warn("Failed to abort:", err);
+    }
+  }, [sessionKey]);
+
   return (
     <div className="flex h-full flex-col">
       {/* Messages */}
@@ -133,6 +141,7 @@ export function ChatView({ agentId }: ChatViewProps) {
       {/* Input */}
       <ChatInput
         onSend={handleSend}
+        onStop={handleStop}
         isStreaming={isStreaming}
         draft={draft}
         onDraftChange={(text) => setDraft(agentId, text)}

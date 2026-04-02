@@ -5,6 +5,7 @@ import { useSettingsStore } from "@/stores/settings";
 
 interface ChatInputProps {
   onSend: (content: string) => void;
+  onStop?: () => void;
   isStreaming?: boolean;
   draft?: string;
   onDraftChange?: (text: string) => void;
@@ -13,6 +14,7 @@ interface ChatInputProps {
 /** Chat message input with auto-grow, always-active typing, and message queueing. */
 export function ChatInput({
   onSend,
+  onStop,
   isStreaming = false,
   draft = "",
   onDraftChange,
@@ -139,6 +141,15 @@ export function ChatInput({
           rows={1}
           className="min-h-[36px] max-h-[200px] flex-1 resize-none rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--input-focus-ring)]"
         />
+        {isStreaming && onStop && (
+          <Button
+            onClick={onStop}
+            variant="danger"
+            size="md"
+          >
+            ■ Stop
+          </Button>
+        )}
         <Button
           onClick={handleSend}
           disabled={!value.trim()}
