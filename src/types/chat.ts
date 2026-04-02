@@ -23,6 +23,8 @@ export interface StreamingState {
   isStreaming: boolean;
   abortController: AbortController | null;
   partialContent: string;
+  /** Unix ms when streaming started (for duration timer). */
+  startedAt: number | null;
 }
 
 /** Request body for the chat completions API. */

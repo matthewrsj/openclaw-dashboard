@@ -162,6 +162,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       isStreaming: false,
       abortController: null,
       partialContent: "",
+      startedAt: null,
     };
     streamingState.set(sessionKey, { ...existing, ...state });
     set({ streamingState });
@@ -289,7 +290,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       pendingAssistantIds,
       streamingState: (() => {
         const s = new Map(get().streamingState);
-        s.set(sessionKey, { isStreaming: false, abortController: null, partialContent: "" });
+        s.set(sessionKey, { isStreaming: false, abortController: null, partialContent: "", startedAt: null });
         return s;
       })(),
     });

@@ -1,32 +1,26 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 
-/** Hook that returns elapsed seconds since `active` became true. Resets on false. */
-function useElapsedTimer(active: boolean): number {
-  const [elapsed, setElapsed] = useState(0);
-  const startRef = useRef(0);
-
-  useEffect(() => {
-    if (!active) {
-      setElapsed(0);
-      return;
-    }
-    startRef.current = Date.now();
-    setElapsed(0);
-    const interval = setInterval(() => {
-      setElapsed(Date.now() - startRef.current);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [active]);
-
-  return elapsed;
-}
-
 function formatDuration(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
   if (totalSec < 60) return `${totalSec}s`;
   const minutes = Math.floor(totalSec / 60);
   const seconds = totalSec % 60;
   return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
+}
+
+/** Hook that ticks every second while active, returning elapsed ms from a start time. */
+function useStreamingTimer(startedAt: number | null): number {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (!startedAt) return;
+    setNow(Date.now());
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [startedAt]);
+
+  if (!startedAt) return 0;
+  return Math.max(0, now - startedAt);
 }
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -37,6 +31,7 @@ interface ChatInputProps {
   onSend: (content: string) => void;
   onStop?: () => void;
   isStreaming?: boolean;
+  streamingStartedAt?: number | null;
   sessionKey: string;
   draft?: string;
   onDraftChange?: (text: string) => void;
@@ -47,6 +42,7 @@ export function ChatInput({
   onSend,
   onStop,
   isStreaming = false,
+  streamingStartedAt = null,
   sessionKey,
   draft = "",
   onDraftChange,
@@ -54,7 +50,7 @@ export function ChatInput({
   const [value, setValue] = useState(draft);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const enterToSend = useSettingsStore((s) => s.enterToSend);
-  const streamingElapsed = useElapsedTimer(isStreaming);
+  const streamingElapsed = useStreamingTimer(isStreaming ? streamingStartedAt : null);
 
   // Per-session queue from store
   const queueRaw = useChatStore((s) => s.messageQueues.get(sessionKey));

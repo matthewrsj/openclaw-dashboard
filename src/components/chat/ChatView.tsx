@@ -17,7 +17,9 @@ export function ChatView({ agentId }: ChatViewProps) {
   const sessionKey = agent?.activeSessionKey || `agent:${agentId}:main`;
   const messagesRaw = useChatStore((s) => s.messages.get(sessionKey));
   const messages = useMemo(() => messagesRaw ?? [], [messagesRaw]);
-  const isStreaming = useChatStore((s) => s.streamingState.get(sessionKey)?.isStreaming ?? false);
+  const streamingStateForSession = useChatStore((s) => s.streamingState.get(sessionKey));
+  const isStreaming = streamingStateForSession?.isStreaming ?? false;
+  const streamingStartedAt = streamingStateForSession?.startedAt ?? null;
   const addMessage = useChatStore((s) => s.addMessage);
   const updateMessage = useChatStore((s) => s.updateMessage);
   const setStreamingState = useChatStore((s) => s.setStreamingState);
@@ -71,6 +73,7 @@ export function ChatView({ agentId }: ChatViewProps) {
       isStreaming: true,
       abortController: null,
       partialContent: "",
+      startedAt: Date.now(),
     });
 
     // Register the pending run BEFORE sending the RPC.
@@ -150,6 +153,7 @@ export function ChatView({ agentId }: ChatViewProps) {
         onSend={handleSend}
         onStop={handleStop}
         isStreaming={isStreaming}
+        streamingStartedAt={streamingStartedAt}
         sessionKey={sessionKey}
         draft={draft}
         onDraftChange={(text) => setDraft(agentId, text)}
