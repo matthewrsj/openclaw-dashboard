@@ -32,9 +32,6 @@ function routeEvent(
   eventType: string,
   data: Record<string, unknown>,
 ): void {
-  // Debug: log all incoming events
-  console.log(`[event-router] ${eventType}`, data);
-
   switch (eventType) {
     // Session lifecycle
     case "session.created":
