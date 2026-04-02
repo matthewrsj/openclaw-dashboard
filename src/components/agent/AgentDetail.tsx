@@ -42,7 +42,7 @@ export function AgentDetail({ agentId }: AgentDetailProps) {
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-3 border-b border-border-primary px-6 py-3">
         <button onClick={() => navigate({ to: "/" })} className="text-sm text-text-secondary hover:text-text-primary">← Fleet</button>
-        <span className="text-xl">{agent.emoji}</span>
+        <span className="inline-flex w-7 justify-center text-xl">{agent.emoji}</span>
         <h1 className="text-base font-semibold text-text-primary">{agent.name}</h1>
         <StatusDot status={statusVariant} size="sm" pulse={agent.status === "active"} />
         <Badge variant={statusVariant === "success" ? "success" : statusVariant === "error" ? "error" : "secondary"}>{agent.status}</Badge>

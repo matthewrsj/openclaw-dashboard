@@ -31,7 +31,7 @@ export function AgentCard({ agent }: AgentCardProps) {
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between">
             <div className="flex items-center space-x-3">
-              <span className="text-2xl">{agent.emoji}</span>
+              <span className="inline-flex w-8 justify-center text-2xl">{agent.emoji}</span>
               <div>
                 <h3 className="font-semibold text-text-primary">
                   {agent.name}

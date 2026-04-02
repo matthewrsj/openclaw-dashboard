@@ -30,7 +30,7 @@ export function SidebarAgents() {
                 params={{ agentId: agent.id }}
                 className="flex items-center rounded-md p-2 text-sm hover:bg-bg-hover"
               >
-                <span className="mr-2 text-base">{agent.emoji}</span>
+                <span className="inline-flex w-6 justify-center mr-2 text-base">{agent.emoji}</span>
                 <span className="min-w-0 flex-1 truncate text-text-secondary">
                   {agent.name}
                 </span>

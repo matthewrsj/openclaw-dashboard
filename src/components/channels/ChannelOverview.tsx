@@ -153,7 +153,7 @@ function AccountRow({
                 disabled={busy}
                 className="flex items-center gap-1.5 rounded-md border border-border-primary px-2.5 py-1 text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors disabled:opacity-50"
               >
-                <span>{agent.emoji}</span>
+                <span className="inline-flex w-5 justify-center">{agent.emoji}</span>
                 <span>{agent.name}</span>
               </button>
             ))}

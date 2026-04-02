@@ -40,7 +40,7 @@ export function AgentSwitcher() {
                 : "text-text-secondary hover:bg-bg-hover",
             )}
           >
-            <span className="text-base">{agent.emoji}</span>
+            <span className="inline-flex w-6 justify-center text-base">{agent.emoji}</span>
             <span className="flex-1 truncate text-left">{agent.name}</span>
             <StatusDot
               status={agent.status === "active" ? "success" : "inactive"}
