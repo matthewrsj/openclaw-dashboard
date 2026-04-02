@@ -87,6 +87,14 @@ export function ChatInput({
 
   return (
     <div className="border-t border-border-primary bg-bg-primary">
+      {/* Streaming indicator */}
+      {isStreaming && (
+        <div className="flex items-center gap-2 px-4 pt-2 text-xs text-accent-primary">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent-primary animate-pulse" />
+          Streaming…
+        </div>
+      )}
+
       {/* Queue preview */}
       {queue.length > 0 && (
         <div className="px-4 pt-3">
