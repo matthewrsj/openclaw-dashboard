@@ -8,6 +8,39 @@
 import { create } from "zustand";
 import type { ChatMessage, StreamingState } from "../types/chat";
 
+/**
+ * Extract plain text from a Gateway chat message payload.
+ *
+ * The Gateway sends messages as:
+ *   { role: "assistant", content: [{ type: "text", text: "..." }, ...], timestamp }
+ *
+ * Returns the concatenated text, or null if the message is missing/unparseable.
+ */
+function extractTextFromMessage(message: unknown): string | null {
+  if (!message || typeof message !== "object") return null;
+  const msg = message as Record<string, unknown>;
+  const content = msg.content;
+
+  // content is an array of content blocks
+  if (Array.isArray(content)) {
+    return content
+      .filter(
+        (block: unknown): block is { type: string; text: string } =>
+          typeof block === "object" &&
+          block !== null &&
+          (block as Record<string, unknown>).type === "text" &&
+          typeof (block as Record<string, unknown>).text === "string",
+      )
+      .map((block) => block.text)
+      .join("");
+  }
+
+  // Fallback: content might be a plain string
+  if (typeof content === "string") return content;
+
+  return null;
+}
+
 interface ChatStore {
   /** Map of session key → messages. */
   messages: Map<string, ChatMessage[]>;
@@ -130,42 +163,28 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const sessionKey = (data.sessionKey as string) || "";
     if (!sessionKey) return;
 
-    // Gateway ChatEvent schema: { runId, sessionKey, seq, state, message?, errorMessage?, usage?, stopReason? }
+    // Gateway ChatEvent: { runId, sessionKey, seq, state, message?, errorMessage?, usage?, stopReason? }
+    // message format: { role, content: [{ type: "text", text: "..." }, ...], timestamp }
+    // content is cumulative (full text so far), not incremental deltas
     const state = (data.state as string) || "";
     const store = get();
     const assistantId = store.pendingAssistantIds.get(sessionKey);
 
     if (state === "delta") {
-      // Streaming token — the message field contains the delta content
       if (!assistantId) return;
-      const msg = data.message as Record<string, unknown> | undefined;
-      const delta = typeof msg === "object" && msg
-        ? (msg.content as string) || ""
-        : typeof data.message === "string"
-          ? (data.message as string)
-          : "";
-      if (!delta) return;
+      const text = extractTextFromMessage(data.message);
+      if (text === null) return;
 
-      const sessionMessages = store.messages.get(sessionKey) || [];
-      const existing = sessionMessages.find((m) => m.id === assistantId);
-      const accumulated = (existing?.content || "") + delta;
-
-      get().updateMessage(sessionKey, assistantId, { content: accumulated });
-      get().setStreamingState(sessionKey, { partialContent: accumulated });
+      // text is cumulative — replace, don't append
+      get().updateMessage(sessionKey, assistantId, { content: text });
+      get().setStreamingState(sessionKey, { partialContent: text });
     } else if (state === "final") {
-      // Stream finished — message field may contain the full final message
       if (assistantId) {
-        const msg = data.message as Record<string, unknown> | undefined;
-        const finalContent = typeof msg === "object" && msg
-          ? (msg.content as string) || undefined
-          : typeof data.message === "string"
-            ? (data.message as string)
-            : undefined;
-
-        if (finalContent !== undefined) {
+        const text = extractTextFromMessage(data.message);
+        if (text !== null) {
           get().updateMessage(sessionKey, assistantId, {
             status: "sent",
-            content: finalContent,
+            content: text,
           });
         } else {
           get().updateMessage(sessionKey, assistantId, { status: "sent" });
@@ -178,7 +197,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         partialContent: "",
       });
     } else if (state === "aborted") {
-      // Run was aborted (e.g., user sent /stop)
       if (assistantId) {
         get().updateMessage(sessionKey, assistantId, { status: "sent" });
         get().setPendingAssistantId(sessionKey, null);
@@ -189,7 +207,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         partialContent: "",
       });
     } else if (state === "error") {
-      // Stream error
       const errorMsg = (data.errorMessage as string) || "Unknown error";
       if (assistantId) {
         get().updateMessage(sessionKey, assistantId, {
