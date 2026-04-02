@@ -65,11 +65,26 @@ function App() {
   }, [loadSettings, autoConnect, fetchAgents, fetchSessions, fetchCronJobs]);
 
   // Auto-refresh agent status, sessions, and cron data every 30 seconds
+  // Also poll the Rust backend for actual connection state to fix stale status
   useEffect(() => {
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       fetchAgents().catch(console.warn);
       fetchSessions().catch(console.warn);
       fetchCronJobs().catch(console.warn);
+
+      // Sync connection state from Rust backend
+      try {
+        const { getConnectionState } = await import("@/services/tauri-commands");
+        const state = await getConnectionState();
+        if (state) {
+          const gw = useGatewayStore.getState();
+          const mapped = state as "connected" | "connecting" | "reconnecting" | "disconnected";
+          if (gw.connectionState !== mapped) {
+            gw.setConnectionState(mapped);
+            if (mapped === "connected") gw.setLastError(null);
+          }
+        }
+      } catch { /* non-fatal */ }
     }, 30_000);
 
     return () => clearInterval(interval);

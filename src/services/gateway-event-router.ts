@@ -8,6 +8,7 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { GatewayEventPayload } from "../types/gateway";
 import { useAgentStore } from "../stores/agents";
+import { useGatewayStore } from "../stores/gateway";
 import { useSessionStore } from "../stores/sessions";
 import { useChatStore } from "../stores/chat";
 import { useCronStore } from "../stores/cron";
@@ -32,6 +33,14 @@ function routeEvent(
   eventType: string,
   data: Record<string, unknown>,
 ): void {
+  // Any event arriving proves the connection is alive.
+  // Fix stale "disconnected" status if we're receiving events.
+  const gw = useGatewayStore.getState();
+  if (gw.connectionState !== "connected") {
+    gw.setConnectionState("connected");
+    gw.setLastError(null);
+  }
+
   switch (eventType) {
     // Session lifecycle
     case "session.created":
