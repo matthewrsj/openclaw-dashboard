@@ -88,22 +88,44 @@ export function ChatInput({
 
   return (
     <div className="border-t border-border-primary bg-bg-primary">
-      {/* Queue indicator */}
+      {/* Queue preview */}
       {queue.length > 0 && (
-        <div className="flex items-center gap-2 px-4 pt-2 text-xs text-text-secondary">
-          <Badge variant="default">
-            {queue.length} queued
-          </Badge>
-          <span className="text-text-tertiary">
-            Will send when {isStreaming ? "agent finishes" : "ready"}
-          </span>
-          <button
-            type="button"
-            onClick={clearQueue}
-            className="text-text-tertiary hover:text-text-secondary"
-          >
-            ✕ Clear
-          </button>
+        <div className="px-4 pt-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-2">
+              <Badge variant="default">
+                {queue.length} queued
+              </Badge>
+              <span className="text-xs text-text-tertiary">
+                Will send when {isStreaming ? "agent finishes" : "ready"}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={clearQueue}
+              className="text-xs text-text-tertiary hover:text-text-secondary"
+            >
+              ✕ Clear
+            </button>
+          </div>
+          <div className="space-y-1 max-h-[120px] overflow-y-auto">
+            {queue.map((msg, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-2 rounded-md bg-accent-primary/8 px-3 py-1.5 text-xs text-text-secondary"
+              >
+                <span className="shrink-0 text-text-tertiary">{i + 1}.</span>
+                <span className="line-clamp-2">{msg}</span>
+                <button
+                  type="button"
+                  onClick={() => setQueue((q) => q.filter((_, idx) => idx !== i))}
+                  className="shrink-0 text-text-tertiary hover:text-text-secondary ml-auto"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
