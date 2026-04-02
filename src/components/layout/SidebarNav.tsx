@@ -1,4 +1,4 @@
-import { Link, useRouter } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/ui";
 
@@ -69,13 +69,13 @@ const navItems: NavItem[] = [
 
 export function SidebarNav() {
   const sidebarExpanded = useUIStore((state) => state.sidebarExpanded);
-  const router = useRouter();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
     <nav className="p-2">
       <ul className="space-y-1">
         {navItems.map((item) => {
-          const isActive = router.state.location.pathname === item.to;
+          const isActive = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
           return (
             <li key={item.to}>
               <Link
