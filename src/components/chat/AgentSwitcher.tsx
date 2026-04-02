@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useAgentStore } from "@/stores/agents";
 import { useChatStore } from "@/stores/chat";
@@ -10,11 +10,25 @@ export function AgentSwitcher() {
   const agents = useAgentStore((s) => s.agentList);
   const activeAgentId = useChatStore((s) => s.activeAgentId);
   const setActiveAgentId = useChatStore((s) => s.setActiveAgentId);
+  const messages = useChatStore((s) => s.messages);
   const [filter, setFilter] = useState("");
 
-  const filtered = agents.filter((a) =>
-    a.name.toLowerCase().includes(filter.toLowerCase()),
-  );
+  const filtered = useMemo(() => {
+    const list = agents.filter((a) =>
+      a.name.toLowerCase().includes(filter.toLowerCase()),
+    );
+
+    // Sort by most recent message timestamp (descending)
+    return [...list].sort((a, b) => {
+      const aKey = `agent:${a.id}:main`;
+      const bKey = `agent:${b.id}:main`;
+      const aMsgs = messages.get(aKey);
+      const bMsgs = messages.get(bKey);
+      const aLast = aMsgs?.length ? aMsgs[aMsgs.length - 1].timestamp : 0;
+      const bLast = bMsgs?.length ? bMsgs[bMsgs.length - 1].timestamp : 0;
+      return bLast - aLast;
+    });
+  }, [agents, filter, messages]);
 
   return (
     <div className="flex h-full w-56 flex-col border-r border-border-primary bg-bg-secondary">
