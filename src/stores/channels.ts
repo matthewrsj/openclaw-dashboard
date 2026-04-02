@@ -7,11 +7,21 @@
 
 import { create } from "zustand";
 import type { ChannelInfo, ChannelAccount } from "../types/channel";
-import { gatewayRpc } from "../services/tauri-commands";
+import { gatewayRpc, execCliJson, execCli } from "../services/tauri-commands";
+
+/** A channel→agent binding. */
+export interface ChannelBinding {
+  agentId: string;
+  channel: string;
+  accountId: string;
+  description: string;
+}
 
 interface ChannelStore {
   /** List of channels with per-account detail. */
   channels: ChannelInfo[];
+  /** Current bindings (channel account → agent). */
+  bindings: ChannelBinding[];
   /** Whether fetch is in progress. */
   loading: boolean;
   /** Error from last fetch. */
@@ -19,6 +29,9 @@ interface ChannelStore {
 
   // Actions
   fetchChannels: () => Promise<void>;
+  fetchBindings: () => Promise<void>;
+  bindAccount: (agentId: string, channel: string, accountId: string) => Promise<void>;
+  unbindAccount: (agentId: string, channel: string, accountId: string) => Promise<void>;
   handleChannelEvent: (data: Record<string, unknown>) => void;
 }
 
@@ -37,6 +50,7 @@ function deriveChannelStatus(accounts: ChannelAccount[]): ChannelInfo["status"] 
 
 export const useChannelStore = create<ChannelStore>((set, get) => ({
   channels: [],
+  bindings: [],
   loading: false,
   error: null,
 
@@ -103,6 +117,48 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
         loading: false,
       });
     }
+  },
+
+  fetchBindings: async () => {
+    try {
+      const result = await execCliJson<
+        Array<{ agentId: string; match: { channel: string; accountId?: string }; description: string }>
+      >(["agents", "bindings"]);
+      if (!result) return;
+      const bindings: ChannelBinding[] = result.map((b) => ({
+        agentId: b.agentId,
+        channel: b.match.channel,
+        accountId: b.match.accountId || "default",
+        description: b.description,
+      }));
+      set({ bindings });
+    } catch (err) {
+      console.warn("Failed to fetch bindings:", err);
+    }
+  },
+
+  bindAccount: async (agentId: string, channel: string, accountId: string) => {
+    const binding = accountId && accountId !== "default"
+      ? `${channel}:${accountId}`
+      : channel;
+    const result = await execCli(["agents", "bind", "--agent", agentId, "--bind", binding]);
+    if (result && result.exitCode !== 0) {
+      throw new Error(result.stderr || "Failed to bind");
+    }
+    // Refresh bindings
+    await get().fetchBindings();
+  },
+
+  unbindAccount: async (agentId: string, channel: string, accountId: string) => {
+    const binding = accountId && accountId !== "default"
+      ? `${channel}:${accountId}`
+      : channel;
+    const result = await execCli(["agents", "unbind", "--agent", agentId, "--bind", binding]);
+    if (result && result.exitCode !== 0) {
+      throw new Error(result.stderr || "Failed to unbind");
+    }
+    // Refresh bindings
+    await get().fetchBindings();
   },
 
   handleChannelEvent: (data: Record<string, unknown>) => {
