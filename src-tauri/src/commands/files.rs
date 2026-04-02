@@ -117,6 +117,76 @@ pub async fn read_workspace_file(
     }
 }
 
+/// Write content to a file in an agent's workspace directory.
+///
+/// The file must be in `ALLOWED_FILES` or be a `.md` file inside an
+/// `ALLOWED_DIRS` directory.  Parent directories are created if needed.
+///
+/// Uses parent-directory canonicalization so the target file need not
+/// exist yet, while still blocking path-traversal attacks.
+#[tauri::command]
+pub async fn write_workspace_file(
+    agent_id: String,
+    relative_path: String,
+    content: String,
+) -> Result<(), String> {
+    // Validate the relative path against the allow-list
+    let path = std::path::Path::new(&relative_path);
+    let components: Vec<&str> = path
+        .components()
+        .map(|c| c.as_os_str().to_str().unwrap_or(""))
+        .collect();
+
+    let allowed = if components.len() == 1 {
+        ALLOWED_FILES.contains(&components[0])
+    } else if components.len() == 2 {
+        ALLOWED_DIRS.contains(&components[0])
+            && components[1].ends_with(".md")
+    } else {
+        false
+    };
+
+    if !allowed {
+        return Err(format!(
+            "Path '{}' is not in the allowed file list",
+            relative_path
+        ));
+    }
+
+    let workspace = get_agent_workspace_path(agent_id).await?;
+    let full_path = PathBuf::from(&workspace).join(&relative_path);
+
+    // Ensure parent directory exists
+    if let Some(parent) = full_path.parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(|e| format!("Failed to create directories: {e}"))?;
+    }
+
+    // Security: canonicalize the parent directory and verify it is
+    // inside the workspace.  We canonicalize the parent (not the file
+    // itself) because the file may not exist yet.
+    let parent = full_path
+        .parent()
+        .ok_or_else(|| "Invalid file path".to_string())?;
+    let canonical_parent = tokio::fs::canonicalize(parent)
+        .await
+        .map_err(|e| format!("Parent path resolution error: {e}"))?;
+    let workspace_canonical = tokio::fs::canonicalize(&workspace)
+        .await
+        .map_err(|e| format!("Workspace path error: {e}"))?;
+
+    if !canonical_parent.starts_with(&workspace_canonical) {
+        return Err("Path traversal denied".to_string());
+    }
+
+    tokio::fs::write(&full_path, content.as_bytes())
+        .await
+        .map_err(|e| format!("File write error: {e}"))?;
+
+    Ok(())
+}
+
 /// List files and directories in an agent's workspace.
 ///
 /// At the root level, returns only known safe files and directories.

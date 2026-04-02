@@ -117,6 +117,19 @@ export async function readWorkspaceFile(
   });
 }
 
+/** Write content to a file in an agent's workspace. */
+export async function writeWorkspaceFile(
+  agentId: string,
+  relativePath: string,
+  content: string,
+): Promise<void> {
+  await safeInvoke("write_workspace_file", {
+    agentId,
+    relativePath,
+    content,
+  });
+}
+
 /** List files in an agent's workspace directory. */
 export async function listWorkspaceFiles(
   agentId: string,

@@ -49,6 +49,7 @@ pub fn run() {
             commands::cli::exec_cli,
             commands::files::get_agent_workspace_path,
             commands::files::read_workspace_file,
+            commands::files::write_workspace_file,
             commands::files::list_workspace_files,
             commands::logs::tail_log,
             commands::logs::start_log_tail,
