@@ -117,6 +117,7 @@ export function ChatView({ agentId }: ChatViewProps) {
                 key={msg.id}
                 message={msg}
                 agentEmoji={agent?.emoji}
+                agentName={agent?.name}
               />
             ))}
           </div>

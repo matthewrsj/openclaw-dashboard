@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -9,12 +9,58 @@ import { cn } from "@/lib/utils";
 interface ChatMessageProps {
   message: ChatMessageType;
   agentEmoji?: string;
+  agentName?: string;
+}
+
+const THINKING_VERBS = [
+  "Thinking",
+  "Pondering",
+  "Mulling it over",
+  "Cooking up a reply",
+  "Rummaging through context",
+  "Consulting the runes",
+  "Warming up the neurons",
+  "Composing thoughts",
+  "Connecting dots",
+  "Weighing options",
+];
+
+/** Animated placeholder while the agent is thinking (no content yet). */
+function ThinkingIndicator({ agentName: _agentName }: { agentName?: string }) {
+  const [verbIndex, setVerbIndex] = useState(
+    () => Math.floor(Math.random() * THINKING_VERBS.length),
+  );
+  const [dots, setDots] = useState(1);
+
+  useEffect(() => {
+    // Cycle dots: . → .. → ... → .
+    const dotTimer = setInterval(() => {
+      setDots((d) => (d % 3) + 1);
+    }, 500);
+
+    // Rotate verb every 3s
+    const verbTimer = setInterval(() => {
+      setVerbIndex((i) => (i + 1) % THINKING_VERBS.length);
+    }, 3000);
+
+    return () => {
+      clearInterval(dotTimer);
+      clearInterval(verbTimer);
+    };
+  }, []);
+
+  return (
+    <span className="text-text-tertiary text-xs italic">
+      {THINKING_VERBS[verbIndex]}{".".repeat(dots)}
+    </span>
+  );
 }
 
 /** Single chat message with markdown rendering. */
 export const ChatMessage = memo(function ChatMessage({
   message,
   agentEmoji,
+  agentName,
 }: ChatMessageProps) {
   const isUser = message.role === "user";
 
@@ -42,7 +88,7 @@ export const ChatMessage = memo(function ChatMessage({
         )}
       >
         {message.status === "streaming" && !message.content ? (
-          <span className="text-text-tertiary animate-pulse">…</span>
+          <ThinkingIndicator agentName={agentName} />
         ) : (
           <div className="prose prose-sm max-w-none text-text-primary">
             <ReactMarkdown
