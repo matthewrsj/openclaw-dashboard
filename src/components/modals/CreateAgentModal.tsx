@@ -45,7 +45,6 @@ export function CreateAgentModal({ open, onClose }: CreateAgentModalProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const addToast = useUIStore((s) => s.addToast);
   const fetchAgents = useAgentStore((s) => s.fetchAgents);
-  const agentList = useAgentStore((s) => s.agentList);
   const models = useModelStore((s) => s.models);
 
   const shuffleEmoji = useCallback(() => {
@@ -81,9 +80,13 @@ export function CreateAgentModal({ open, onClose }: CreateAgentModalProps) {
       addToast({ type: "success", message: `Agent "${name}" created` });
       await fetchAgents();
 
-      // Write SOUL.md if the user provided identity content (best-effort)
+      // Write SOUL.md if the user provided identity content (best-effort).
+      // Read from the store directly -- the closure's agentList is stale.
       if (soul.trim()) {
-        const createdAgent = agentList.find((a) => a.name === name.trim());
+        const freshList = useAgentStore.getState().agentList;
+        const createdAgent = freshList.find(
+          (a) => a.name === name.trim(),
+        );
         if (createdAgent) {
           try {
             await writeWorkspaceFile(createdAgent.id, "SOUL.md", soul.trim());

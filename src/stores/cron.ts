@@ -112,7 +112,7 @@ export const useCronStore = create<CronStore>((set, get) => ({
 
   updateJob: async (id: string, patch: Record<string, unknown>) => {
     try {
-      await gatewayRpc("cron.update", { id, ...patch });
+      await gatewayRpc("cron.update", { jobId: id, patch });
       await get().fetchJobs();
       useUIStore.getState().addToast({ type: "success", message: "Job updated" });
     } catch (err) {

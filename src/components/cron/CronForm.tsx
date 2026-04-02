@@ -31,6 +31,10 @@ const PRESETS = [
   { label: "Custom…", expr: "" },
 ];
 
+/** Detect the system's IANA timezone (e.g. "America/New_York"). */
+const SYSTEM_TZ =
+  Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+
 interface CronFormProps {
   open: boolean;
   onClose: () => void;
@@ -59,6 +63,9 @@ export function CronForm({ open, onClose, editJob }: CronFormProps) {
   const [message, setMessage] = useState(
     editJob?.payload.message || editJob?.payload.text || "",
   );
+  const [timezone, setTimezone] = useState(
+    editJob?.schedule.tz || SYSTEM_TZ,
+  );
   const [enabled, setEnabled] = useState(editJob?.enabled ?? true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -79,7 +86,7 @@ export function CronForm({ open, onClose, editJob }: CronFormProps) {
       if (isEdit && editJob) {
         await updateJob(editJob.id, {
           name: name.trim(),
-          schedule: { kind: "cron", expr: cronExpr.trim(), tz: "America/Los_Angeles" },
+          schedule: { kind: "cron", expr: cronExpr.trim(), tz: timezone },
           payload: { kind: "agentTurn", message: message.trim() },
           enabled,
         });
@@ -87,7 +94,7 @@ export function CronForm({ open, onClose, editJob }: CronFormProps) {
         await gatewayRpc("cron.add", {
           agentId,
           name: name.trim(),
-          schedule: { kind: "cron", expr: cronExpr.trim(), tz: "America/Los_Angeles" },
+          schedule: { kind: "cron", expr: cronExpr.trim(), tz: timezone },
           payload: { kind: "agentTurn", message: message.trim() },
           enabled,
         });
@@ -175,9 +182,19 @@ export function CronForm({ open, onClose, editJob }: CronFormProps) {
           )}
 
           {schedulePreview && (
-            <p className="mt-1.5 text-xs text-text-tertiary">→ {schedulePreview}</p>
+            <p className="mt-1.5 text-xs text-text-tertiary">
+              {schedulePreview}
+            </p>
           )}
         </div>
+
+        <Input
+          id="cron-timezone"
+          label="Timezone"
+          value={timezone}
+          onChange={(e) => setTimezone(e.target.value)}
+          placeholder={SYSTEM_TZ}
+        />
 
         <Textarea
           id="cron-message"

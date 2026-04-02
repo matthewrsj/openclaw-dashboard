@@ -5,6 +5,7 @@ import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { useUIStore } from "@/stores/ui";
 import { useAgentStore } from "@/stores/agents";
+import { useModelStore } from "@/stores/models";
 import { execCli } from "@/services/tauri-commands";
 
 interface AgentSettingsProps { agent: Agent; }
@@ -17,6 +18,7 @@ export function AgentSettings({ agent }: AgentSettingsProps) {
   const addToast = useUIStore((s) => s.addToast);
   const openModal = useUIStore((s) => s.openModal);
   const fetchAgents = useAgentStore((s) => s.fetchAgents);
+  const models = useModelStore((s) => s.models);
 
   const identityDirty = name !== agent.name || emoji !== agent.emoji;
   const isDirty = identityDirty || model !== agent.model;
@@ -24,14 +26,17 @@ export function AgentSettings({ agent }: AgentSettingsProps) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Update identity (name + emoji) via set-identity
-      if (identityDirty) {
+      // Update identity (name, emoji, model) via set-identity
+      if (isDirty) {
         const args = ["agents", "set-identity", agent.id];
         if (name !== agent.name) args.push("--name", name);
         if (emoji !== agent.emoji) args.push("--emoji", emoji);
+        if (model !== agent.model) args.push("--model", model);
         const result = await execCli(args);
         if (result && result.exitCode !== 0) {
-          throw new Error(result.stderr || "Failed to update identity");
+          throw new Error(
+            result.stderr || "Failed to update settings",
+          );
         }
       }
 
@@ -57,8 +62,18 @@ export function AgentSettings({ agent }: AgentSettingsProps) {
       </section>
       <section>
         <h3 className="mb-4 text-sm font-semibold text-text-primary">Model</h3>
-        <Select id="agent-model" label="Default Model" value={model} onChange={(e) => setModel(e.target.value)}>
-          <option value={agent.model}>{agent.model}</option>
+        <Select
+          id="agent-model"
+          label="Default Model"
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+        >
+          {models.map((m) => (
+            <option key={m.id} value={m.id}>{m.id}</option>
+          ))}
+          {!models.some((m) => m.id === agent.model) && (
+            <option value={agent.model}>{agent.model}</option>
+          )}
         </Select>
       </section>
       <section>

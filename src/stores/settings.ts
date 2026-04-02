@@ -20,11 +20,14 @@ interface SettingsStore {
   notifications: NotificationPreferences;
   /** Gateway URL. */
   gatewayUrl: string;
+  /** Whether the user has completed the onboarding flow. */
+  hasCompletedOnboarding: boolean;
 
   // Actions
   setTheme: (theme: "system" | "light" | "dark") => void;
   setEnterToSend: (value: boolean) => void;
   setGatewayUrl: (url: string) => void;
+  setHasCompletedOnboarding: (value: boolean) => void;
   loadSettings: () => Promise<void>;
   saveSettings: () => Promise<void>;
 }
@@ -41,6 +44,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     cronFailure: true,
   },
   gatewayUrl: "ws://localhost:18789",
+  hasCompletedOnboarding: false,
 
   setTheme: (theme) => {
     set({ theme });
@@ -58,6 +62,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     get().saveSettings();
   },
 
+  setHasCompletedOnboarding: (value) => {
+    set({ hasCompletedOnboarding: value });
+    get().saveSettings();
+  },
+
   loadSettings: async () => {
     try {
       const { load } = await import("@tauri-apps/plugin-store");
@@ -65,11 +74,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       const theme = await store.get<string>("theme");
       const enterToSend = await store.get<boolean>("enterToSend");
       const gatewayUrl = await store.get<string>("gatewayUrl");
+      const hasCompletedOnboarding =
+        await store.get<boolean>("hasCompletedOnboarding");
 
       set({
         theme: (theme as "system" | "light" | "dark") || "system",
         enterToSend: enterToSend ?? true,
         gatewayUrl: gatewayUrl || "ws://localhost:18789",
+        hasCompletedOnboarding: hasCompletedOnboarding ?? false,
       });
 
       applyTheme(get().theme);
@@ -86,6 +98,10 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       await store.set("theme", state.theme);
       await store.set("enterToSend", state.enterToSend);
       await store.set("gatewayUrl", state.gatewayUrl);
+      await store.set(
+        "hasCompletedOnboarding",
+        state.hasCompletedOnboarding,
+      );
       await store.save();
     } catch (err) {
       console.warn("Failed to save settings:", err);

@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatRelativeTime } from "@/lib/format";
 import type { ChannelInfo, ChannelAccount } from "@/types/channel";
+import { ChannelConfigModal } from "./ChannelConfigModal";
 
 const CHANNEL_ICONS: Record<string, string> = {
   webchat: "💬",
@@ -170,15 +171,19 @@ function ChannelCard({
   agents,
   onBind,
   onUnbind,
+  onConfigure,
 }: {
   channel: ChannelInfo;
   bindings: ChannelBinding[];
   agents: Array<{ id: string; name: string; emoji: string }>;
   onBind: (agentId: string, channel: string, accountId: string) => void;
   onUnbind: (agentId: string, channel: string, accountId: string) => void;
+  onConfigure: (channelType: string, channelLabel: string) => void;
 }) {
   const badge = channelStatusBadge(channel.status);
-  const icon = CHANNEL_ICONS[channel.type] || "📡";
+  const icon = CHANNEL_ICONS[channel.type] || "[~]";
+  const showConfigure =
+    channel.status === "unconfigured" || channel.status === "error";
 
   // Find binding for each account
   const getBinding = (accountId: string) =>
@@ -205,7 +210,18 @@ function ChannelCard({
             </span>
           </div>
         </div>
-        <Badge variant={badge.variant}>{badge.label}</Badge>
+        <div className="flex items-center gap-2">
+          {showConfigure && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onConfigure(channel.type, channel.label)}
+            >
+              Configure
+            </Button>
+          )}
+          <Badge variant={badge.variant}>{badge.label}</Badge>
+        </div>
       </div>
 
       {/* Accounts */}
@@ -239,6 +255,11 @@ export function ChannelOverview() {
   const unbindAccount = useChannelStore((s) => s.unbindAccount);
   const addToast = useUIStore((s) => s.addToast);
 
+  const [configuringChannel, setConfiguringChannel] = useState<{
+    type: string;
+    label: string;
+  } | null>(null);
+
   const rawAgentList = useAgentStore((s) => s.agentList);
   const agentList = useMemo(
     () => rawAgentList.map((a) => ({ id: a.id, name: a.name, emoji: a.emoji })),
@@ -268,6 +289,10 @@ export function ChannelOverview() {
     }
   };
 
+  const handleConfigure = (channelType: string, channelLabel: string) => {
+    setConfiguringChannel({ type: channelType, label: channelLabel });
+  };
+
   if (error) {
     return (
       <EmptyState
@@ -292,9 +317,9 @@ export function ChannelOverview() {
         </div>
       ) : channels.length === 0 ? (
         <EmptyState
-          icon="📡"
-          title="No channels configured"
-          description="Configure channels in the OpenClaw CLI."
+          icon="[~]"
+          title="No channels detected"
+          description="No channels detected. Configure a channel above to get started."
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -306,9 +331,18 @@ export function ChannelOverview() {
               agents={agentList}
               onBind={handleBind}
               onUnbind={handleUnbind}
+              onConfigure={handleConfigure}
             />
           ))}
         </div>
+      )}
+      {configuringChannel && (
+        <ChannelConfigModal
+          open={true}
+          onClose={() => setConfiguringChannel(null)}
+          channelType={configuringChannel.type}
+          channelLabel={configuringChannel.label}
+        />
       )}
     </div>
   );
