@@ -7,6 +7,7 @@ import { ChatInput } from "./ChatInput";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { uniqueId } from "@/lib/utils";
 import { getHttpClient } from "@/services/gateway-http";
+import { getToken } from "@/services/tauri-commands";
 import type { ChatCompletionRequest } from "@/types/chat";
 
 interface ChatViewProps {
@@ -67,7 +68,8 @@ export function ChatView({ agentId }: ChatViewProps) {
 
     let accumulated = "";
     try {
-      const client = getHttpClient(gatewayUrl);
+      const token = await getToken() || "";
+      const client = getHttpClient(gatewayUrl, token);
 
       // Build the messages array from session history
       const currentMessages = useChatStore.getState().messages.get(sessionKey) || [];
