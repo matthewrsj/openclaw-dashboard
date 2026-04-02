@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { CronForm } from "./CronForm";
 import { cronToHuman } from "@/services/cron-expression";
 import { formatRelativeTime } from "@/lib/format";
 import type { CronJob } from "@/types/cron";
@@ -20,6 +21,7 @@ export function CronList() {
   const agents = useAgentStore((s) => s.agentList);
   const openModal = useUIStore((s) => s.openModal);
   const [agentFilter, setAgentFilter] = useState("all");
+  const [editingJob, setEditingJob] = useState<CronJob | null>(null);
 
   useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
@@ -48,7 +50,26 @@ export function CronList() {
       ),
     },
     { key: "nextRun", header: "Next", render: (job: CronJob) => <span className="text-xs">{job.enabled && job.state.nextRunAtMs ? formatRelativeTime(job.state.nextRunAtMs) : "—"}</span> },
-    { key: "actions", header: "", width: "80px", render: (job: CronJob) => <Button variant="ghost" size="sm" onClick={(e: React.MouseEvent) => { e.stopPropagation(); runJob(job.id); }}>Run Now</Button> },
+    {
+      key: "actions", header: "", width: "160px",
+      render: (job: CronJob) => (
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditingJob(job); }}
+          >
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); runJob(job.id); }}
+          >
+            ▶ Run
+          </Button>
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -69,6 +90,15 @@ export function CronList() {
         <EmptyState icon="⏰" title="No cron jobs" description="Create a cron job to automate agent tasks." action={{ label: "Create Cron Job", onClick: () => openModal({ type: "create-cron" }) }} />
       ) : (
         <Table columns={columns} data={filtered} keyExtractor={(j) => j.id} emptyMessage="No cron jobs match the filter" />
+      )}
+
+      {/* Edit modal */}
+      {editingJob && (
+        <CronForm
+          open
+          onClose={() => setEditingJob(null)}
+          editJob={editingJob}
+        />
       )}
     </div>
   );

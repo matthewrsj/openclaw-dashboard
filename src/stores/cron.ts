@@ -24,6 +24,7 @@ interface CronStore {
   fetchJobs: () => Promise<void>;
   toggleJob: (id: string, enabled: boolean) => Promise<void>;
   runJob: (id: string) => Promise<void>;
+  updateJob: (id: string, patch: Record<string, unknown>) => Promise<void>;
   deleteJob: (id: string) => Promise<void>;
   fetchRuns: (jobId: string, limit?: number) => Promise<void>;
   handleCronEvent: (
@@ -109,6 +110,19 @@ export const useCronStore = create<CronStore>((set, get) => ({
     }
   },
 
+  updateJob: async (id: string, patch: Record<string, unknown>) => {
+    try {
+      await gatewayRpc("cron.update", { id, ...patch });
+      await get().fetchJobs();
+      useUIStore.getState().addToast({ type: "success", message: "Job updated" });
+    } catch (err) {
+      useUIStore.getState().addToast({
+        type: "error",
+        message: `Failed to update job: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
+  },
+
   deleteJob: async (id: string) => {
     try {
       await gatewayRpc("cron.rm", { id });
@@ -165,16 +179,33 @@ export const useCronStore = create<CronStore>((set, get) => ({
       const runs = new Map(get().runs);
       const jobRuns = [...(runs.get(jobId) || [])];
       const runId = data.runId as string;
+      const runStatus = (data.status as CronRun["status"]) || "ok";
       const idx = jobRuns.findIndex((r) => r.runId === runId);
       if (idx >= 0) {
         jobRuns[idx] = {
           ...jobRuns[idx],
-          status: (data.status as CronRun["status"]) || "ok",
+          status: runStatus,
           endedAt: Date.now(),
           durationMs: (data.durationMs as number) || 0,
         };
         runs.set(jobId, jobRuns);
         set({ runs });
+      }
+
+      // Also update the job's state so the UI reflects the latest run
+      const jobs = new Map(get().jobs);
+      const job = jobs.get(jobId);
+      if (job) {
+        jobs.set(jobId, {
+          ...job,
+          state: {
+            ...job.state,
+            lastRunAtMs: Date.now(),
+            lastRunStatus: runStatus === "running" ? null : runStatus,
+            lastDurationMs: (data.durationMs as number) || 0,
+          },
+        });
+        set({ jobs, jobList: deriveJobList(jobs) });
       }
     }
   },
