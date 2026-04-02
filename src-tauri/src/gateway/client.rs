@@ -79,7 +79,7 @@ fn build_connect_frame(
         .unwrap_or_default()
         .as_millis() as u64;
 
-    let scopes = ["operator.read", "operator.write"];
+    let scopes = ["operator.read", "operator.write", "operator.admin"];
     let nonce_str = nonce.unwrap_or_default();
 
     // Sign the challenge with v3 payload format
