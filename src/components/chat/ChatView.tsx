@@ -21,9 +21,15 @@ export function ChatView({ agentId }: ChatViewProps) {
   const addMessage = useChatStore((s) => s.addMessage);
   const updateMessage = useChatStore((s) => s.updateMessage);
   const setStreamingState = useChatStore((s) => s.setStreamingState);
+  const loadHistory = useChatStore((s) => s.loadHistory);
   const draft = useChatStore((s) => s.drafts.get(agentId) || "");
   const setDraft = useChatStore((s) => s.setDraft);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Load chat history from Gateway on mount / session change
+  useEffect(() => {
+    loadHistory(sessionKey);
+  }, [sessionKey, loadHistory]);
 
   // Auto-scroll to bottom on new messages or content changes
   useEffect(() => {

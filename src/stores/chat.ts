@@ -7,6 +7,8 @@
 
 import { create } from "zustand";
 import type { ChatMessage, StreamingState } from "../types/chat";
+import { gatewayRpc } from "../services/tauri-commands";
+import { uniqueId } from "../lib/utils";
 
 /**
  * Extract plain text from a Gateway chat message payload.
@@ -83,6 +85,10 @@ interface ChatStore {
   setPendingAssistantId: (sessionKey: string, messageId: string | null) => void;
   /** Register a pending run for correlating chat events by runId. */
   registerPendingRun: (runId: string, sessionKey: string, messageId: string) => void;
+  /** Load chat history from the Gateway for a session. */
+  loadHistory: (sessionKey: string) => Promise<void>;
+  /** Set of session keys that have already been loaded. */
+  loadedSessions: Set<string>;
   /** Clean up tracking state for a completed run. */
   cleanupPendingRun: (runId: string, sessionKey: string) => void;
   /** Handle a chat stream event from the Gateway. */
@@ -97,6 +103,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   activeAgentId: null,
   pendingAssistantIds: new Map(),
   pendingRuns: new Map(),
+  loadedSessions: new Set(),
 
   addMessage: (sessionKey: string, message: ChatMessage) => {
     const messages = new Map(get().messages);
@@ -170,6 +177,62 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const pendingRuns = new Map(get().pendingRuns);
     pendingRuns.set(runId, { sessionKey, messageId });
     set({ pendingRuns });
+  },
+
+  loadHistory: async (sessionKey: string) => {
+    // Don't reload if already loaded
+    if (get().loadedSessions.has(sessionKey)) return;
+
+    try {
+      const result = await gatewayRpc<{
+        sessionKey: string;
+        messages: Array<{
+          role: string;
+          content: unknown;
+          timestamp?: number;
+          id?: string;
+        }>;
+      }>("chat.history", { sessionKey, limit: 100 });
+
+      if (!result || !result.messages) return;
+
+      const messages = new Map(get().messages);
+      const parsed: ChatMessage[] = [];
+
+      for (const msg of result.messages) {
+        // Extract text from content (may be string or content blocks array)
+        let text = "";
+        if (typeof msg.content === "string") {
+          text = msg.content;
+        } else if (Array.isArray(msg.content)) {
+          text = (msg.content as Array<{ type?: string; text?: string }>)
+            .filter((b) => b.type === "text" && typeof b.text === "string")
+            .map((b) => b.text!)
+            .join("");
+        }
+
+        // Skip empty system messages and tool results
+        const role = msg.role as ChatMessage["role"];
+        if (role !== "user" && role !== "assistant") continue;
+        if (!text.trim()) continue;
+
+        parsed.push({
+          id: msg.id || uniqueId("hist-"),
+          sessionKey,
+          role,
+          content: text,
+          timestamp: msg.timestamp || Date.now(),
+          status: "sent",
+        });
+      }
+
+      messages.set(sessionKey, parsed);
+      const loadedSessions = new Set(get().loadedSessions);
+      loadedSessions.add(sessionKey);
+      set({ messages, loadedSessions });
+    } catch (err) {
+      console.warn("Failed to load chat history:", err);
+    }
   },
 
   cleanupPendingRun: (runId: string, sessionKey: string) => {
