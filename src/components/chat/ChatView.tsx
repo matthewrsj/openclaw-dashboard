@@ -133,7 +133,7 @@ export function ChatView({ agentId }: ChatViewProps) {
       {/* Input */}
       <ChatInput
         onSend={handleSend}
-        disabled={isStreaming}
+        isStreaming={isStreaming}
         draft={draft}
         onDraftChange={(text) => setDraft(agentId, text)}
       />

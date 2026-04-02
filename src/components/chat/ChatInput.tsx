@@ -1,39 +1,72 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { useSettingsStore } from "@/stores/settings";
 
 interface ChatInputProps {
   onSend: (content: string) => void;
-  disabled?: boolean;
+  isStreaming?: boolean;
   draft?: string;
   onDraftChange?: (text: string) => void;
 }
 
-/** Chat message input with send button. */
+/** Chat message input with auto-grow, always-active typing, and message queueing. */
 export function ChatInput({
   onSend,
-  disabled = false,
+  isStreaming = false,
   draft = "",
   onDraftChange,
 }: ChatInputProps) {
   const [value, setValue] = useState(draft);
+  const [queue, setQueue] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const enterToSend = useSettingsStore((s) => s.enterToSend);
+
+  // Auto-resize textarea to fit content
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    // Clamp between 1 line (~36px) and ~8 lines (~200px)
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, []);
+
+  useEffect(() => {
+    autoResize();
+  }, [value, autoResize]);
 
   const handleChange = (text: string) => {
     setValue(text);
     onDraftChange?.(text);
   };
 
+  // Flush queue when streaming ends
+  useEffect(() => {
+    if (!isStreaming && queue.length > 0) {
+      // Combine queued messages and send as one
+      const combined = queue.join("\n\n");
+      setQueue([]);
+      onSend(combined);
+    }
+  }, [isStreaming, queue, onSend]);
+
   const handleSend = useCallback(() => {
     const trimmed = value.trim();
-    if (!trimmed || disabled) return;
-    onSend(trimmed);
-    setValue("");
-    onDraftChange?.("");
-    // Refocus textarea
-    textareaRef.current?.focus();
-  }, [value, disabled, onSend, onDraftChange]);
+    if (!trimmed) return;
+
+    if (isStreaming) {
+      // Queue the message for when the agent is done
+      setQueue((q) => [...q, trimmed]);
+      setValue("");
+      onDraftChange?.("");
+      textareaRef.current?.focus();
+    } else {
+      onSend(trimmed);
+      setValue("");
+      onDraftChange?.("");
+      textareaRef.current?.focus();
+    }
+  }, [value, isStreaming, onSend, onDraftChange]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // Cmd/Ctrl+Enter always sends
@@ -49,25 +82,49 @@ export function ChatInput({
     }
   };
 
+  const clearQueue = useCallback(() => {
+    setQueue([]);
+  }, []);
+
   return (
-    <div className="flex items-end gap-2 border-t border-border-primary bg-bg-primary p-4">
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={(e) => handleChange(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Type a message…"
-        disabled={disabled}
-        rows={1}
-        className="min-h-[36px] max-h-[200px] flex-1 resize-none rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--input-focus-ring)] disabled:opacity-50"
-      />
-      <Button
-        onClick={handleSend}
-        disabled={!value.trim() || disabled}
-        size="md"
-      >
-        Send
-      </Button>
+    <div className="border-t border-border-primary bg-bg-primary">
+      {/* Queue indicator */}
+      {queue.length > 0 && (
+        <div className="flex items-center gap-2 px-4 pt-2 text-xs text-text-secondary">
+          <Badge variant="default">
+            {queue.length} queued
+          </Badge>
+          <span className="text-text-tertiary">
+            Will send when {isStreaming ? "agent finishes" : "ready"}
+          </span>
+          <button
+            type="button"
+            onClick={clearQueue}
+            className="text-text-tertiary hover:text-text-secondary"
+          >
+            ✕ Clear
+          </button>
+        </div>
+      )}
+
+      <div className="flex items-end gap-2 p-4">
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => handleChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={isStreaming ? "Type ahead — will queue…" : "Type a message…"}
+          rows={1}
+          className="min-h-[36px] max-h-[200px] flex-1 resize-none rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--input-focus-ring)]"
+        />
+        <Button
+          onClick={handleSend}
+          disabled={!value.trim()}
+          size="md"
+        >
+          {isStreaming && value.trim() ? "Queue" : "Send"}
+        </Button>
+      </div>
     </div>
   );
 }
