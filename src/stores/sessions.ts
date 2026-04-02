@@ -54,7 +54,27 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       const sessions = new Map(get().sessions);
       const byAgent = new Map(get().byAgent);
 
-      for (const raw of rawSessions) {
+      // The CLI returns { sessions: [...] } wrapper
+      const sessionList = Array.isArray(rawSessions)
+        ? rawSessions
+        : (rawSessions as any)?.sessions ?? [];
+
+      for (const raw of sessionList) {
+        const inputTokens = (raw.inputTokens as number) || 0;
+        const outputTokens = (raw.outputTokens as number) || 0;
+        const totalTokens = (raw.totalTokens as number) || (inputTokens + outputTokens);
+        const contextTokens = (raw.contextTokens as number) || 200000;
+
+        // Estimate cost (Claude Opus: ~$15/M input, ~$75/M output)
+        const estimatedCost =
+          (inputTokens / 1_000_000) * 15 +
+          (outputTokens / 1_000_000) * 75;
+
+        // Determine if session is active: updated within last 5 minutes
+        const updatedAt = (raw.updatedAt as number) || Date.now();
+        const ageMs = (raw.ageMs as number) || 0;
+        const isActive = ageMs < 5 * 60 * 1000;
+
         const session: Session = {
           key: (raw.key as string) || (raw.sessionKey as string) || "",
           sessionId: (raw.sessionId as string) || "",
@@ -62,17 +82,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           channel: (raw.channel as string) || "unknown",
           kind: (raw.kind as "direct" | "subagent") || "direct",
           model: (raw.model as string) || "unknown",
-          status: (raw.status as "active" | "ended") || "active",
-          createdAt: (raw.createdAt as number) || Date.now(),
-          updatedAt: (raw.updatedAt as number) || Date.now(),
+          status: isActive ? "active" : "ended",
+          createdAt: (raw.createdAt as number) || updatedAt,
+          updatedAt,
           tokens: {
-            input: ((raw.tokens as Record<string, number>)?.input as number) || 0,
-            output: ((raw.tokens as Record<string, number>)?.output as number) || 0,
-            total: ((raw.tokens as Record<string, number>)?.total as number) || 0,
-            contextWindow: ((raw.tokens as Record<string, number>)?.contextWindow as number) || 0,
-            percentUsed: ((raw.tokens as Record<string, number>)?.percentUsed as number) || 0,
+            input: inputTokens,
+            output: outputTokens,
+            total: totalTokens,
+            contextWindow: contextTokens,
+            percentUsed: contextTokens > 0 ? Math.round((totalTokens / contextTokens) * 100) : 0,
           },
-          cost: (raw.cost as number) || 0,
+          cost: estimatedCost,
           messageCount: (raw.messageCount as number) || 0,
         };
 

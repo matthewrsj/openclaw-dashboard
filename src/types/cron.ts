@@ -10,17 +10,21 @@ export interface CronJob {
   enabled: boolean;
   /** Schedule configuration. */
   schedule: {
-    kind: "cron";
-    /** Cron expression (e.g., "0 8,12,17 * * *"). */
-    expr: string;
+    kind: "cron" | "at";
+    /** Cron expression (e.g., "0 8,12,17 * * *"). Only for kind=cron. */
+    expr?: string;
+    /** ISO timestamp for one-shot jobs. Only for kind=at. */
+    at?: string;
     /** Timezone (e.g., "America/Los_Angeles"). */
-    tz: string;
+    tz?: string;
   };
   /** Job payload. */
   payload: {
-    kind: "agentTurn";
+    kind: "agentTurn" | "systemEvent";
     /** Task prompt sent to the agent. */
-    message: string;
+    message?: string;
+    /** System event text. */
+    text?: string;
     /** Timeout in seconds. */
     timeoutSeconds?: number;
   };

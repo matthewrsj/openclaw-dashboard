@@ -37,7 +37,7 @@ export function CronList() {
     },
     { key: "name", header: "Name", sortable: true, render: (job: CronJob) => <span className="font-medium">{job.name}</span> },
     { key: "agent", header: "Agent", render: (job: CronJob) => { const agent = agents.find((a) => a.id === job.agentId); return <span>{agent?.emoji || "🤖"} {agent?.name || job.agentId}</span>; } },
-    { key: "schedule", header: "Schedule", render: (job: CronJob) => <span className="text-xs">{cronToHuman(job.schedule.expr)}</span> },
+    { key: "schedule", header: "Schedule", render: (job: CronJob) => <span className="text-xs">{job.schedule.expr ? cronToHuman(job.schedule.expr) : job.schedule.at || "—"}</span> },
     {
       key: "lastRun", header: "Last Run", sortable: true,
       render: (job: CronJob) => (

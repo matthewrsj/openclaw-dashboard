@@ -41,8 +41,8 @@ export function CronDetail({ jobId }: CronDetailProps) {
         <CardContent>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between"><span className="text-text-secondary">Agent</span><span>{agent?.emoji} {agent?.name || job.agentId}</span></div>
-            <div className="flex justify-between"><span className="text-text-secondary">Schedule</span><span>{cronToHuman(job.schedule.expr)}</span></div>
-            <div className="flex justify-between"><span className="text-text-secondary">Task</span><span className="max-w-xs truncate text-right">{job.payload.message}</span></div>
+            <div className="flex justify-between"><span className="text-text-secondary">Schedule</span><span>{job.schedule.expr ? cronToHuman(job.schedule.expr) : job.schedule.at || "—"}</span></div>
+            <div className="flex justify-between"><span className="text-text-secondary">Task</span><span className="max-w-xs truncate text-right">{job.payload.message || job.payload.text || "—"}</span></div>
             <div className="flex justify-between"><span className="text-text-secondary">Status</span><Badge variant={job.enabled ? "success" : "secondary"}>{job.enabled ? "Enabled" : "Disabled"}</Badge></div>
           </div>
         </CardContent>

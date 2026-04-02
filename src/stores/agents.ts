@@ -112,6 +112,60 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
         }
         agentMap.set(agent.id, agent);
       }
+
+      // Merge live session data from `openclaw status`
+      try {
+        const statusData = await execCliJson<any>(["status"]);
+        if (statusData?.sessions?.recent) {
+          const now = Date.now();
+          const fiveMinMs = 5 * 60 * 1000;
+
+          // Group sessions by agentId
+          const sessionsByAgent = new Map<string, any[]>();
+          for (const s of statusData.sessions.recent) {
+            const aid = s.agentId as string;
+            if (!aid) continue;
+            if (!sessionsByAgent.has(aid)) sessionsByAgent.set(aid, []);
+            sessionsByAgent.get(aid)!.push(s);
+          }
+
+          for (const [agentId, sessions] of sessionsByAgent) {
+            const agent = agentMap.get(agentId);
+            if (!agent) continue;
+
+            // Sort by updatedAt descending to find most recent
+            sessions.sort((a: any, b: any) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+            const mostRecent = sessions[0];
+
+            // Determine active status: session updated within last 5 minutes
+            const lastUpdate = mostRecent.updatedAt as number;
+            const isActive = lastUpdate && (now - lastUpdate) < fiveMinMs;
+
+            // Sum tokens across all sessions for this agent
+            let totalInput = 0;
+            let totalOutput = 0;
+            for (const s of sessions) {
+              totalInput += (s.inputTokens as number) || 0;
+              totalOutput += (s.outputTokens as number) || 0;
+            }
+
+            // Estimate cost (Claude Opus: ~$15/M input, ~$75/M output)
+            const costEstimate =
+              (totalInput / 1_000_000) * 15 +
+              (totalOutput / 1_000_000) * 75;
+
+            agent.status = isActive ? "active" : "inactive";
+            agent.tokensToday = { input: totalInput, output: totalOutput };
+            agent.costToday = costEstimate;
+            agent.model = (mostRecent.model as string) || agent.model;
+            agent.activeSessionKey = (mostRecent.key as string) || null;
+          }
+        }
+      } catch (statusErr) {
+        // Non-fatal: status fetch failed, agent list still valid
+        console.warn("Failed to fetch status data:", statusErr);
+      }
+
       set({ agents: agentMap, ...deriveArrays(agentMap), loading: false });
     } catch (err) {
       set({

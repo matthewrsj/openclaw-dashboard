@@ -7,7 +7,7 @@
 
 import { create } from "zustand";
 import type { CronJob, CronRun } from "../types/cron";
-import { gatewayRpc } from "../services/tauri-commands";
+import { execCliJson, gatewayRpc } from "../services/tauri-commands";
 import { useUIStore } from "./ui";
 
 interface CronStore {
@@ -46,13 +46,20 @@ export const useCronStore = create<CronStore>((set, get) => ({
   fetchJobs: async () => {
     set({ loading: true });
     try {
-      const result = await gatewayRpc<{ jobs: CronJob[] }>("cron.list");
+      const result = await execCliJson<{ jobs: CronJob[] }>(["cron", "list"]);
       if (result === null) {
         set({ loading: false });
         return;
       }
       const jobMap = new Map<string, CronJob>();
       for (const job of result.jobs || []) {
+        // Normalize timestamp fields from CLI output (ms suffixed fields)
+        if (!job.createdAt && (job as any).createdAtMs) {
+          job.createdAt = (job as any).createdAtMs;
+        }
+        if (!job.updatedAt && (job as any).updatedAtMs) {
+          job.updatedAt = (job as any).updatedAtMs;
+        }
         jobMap.set(job.id, job);
       }
       set({ jobs: jobMap, jobList: deriveJobList(jobMap), loading: false });

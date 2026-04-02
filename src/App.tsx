@@ -4,6 +4,8 @@ import { routeTree } from "./routeTree.gen";
 import { useSettingsStore } from "@/stores/settings";
 import { useGatewayStore } from "@/stores/gateway";
 import { useAgentStore } from "@/stores/agents";
+import { useSessionStore } from "@/stores/sessions";
+import { useCronStore } from "@/stores/cron";
 import { useUIStore } from "@/stores/ui";
 import { initGatewayListeners } from "@/services/gateway-ws";
 import { ToastContainer } from "@/components/ui/Toast";
@@ -27,6 +29,8 @@ function App() {
   const loadSettings = useSettingsStore((state) => state.loadSettings);
   const autoConnect = useGatewayStore((state) => state.autoConnect);
   const fetchAgents = useAgentStore((state) => state.fetchAgents);
+  const fetchSessions = useSessionStore((state) => state.fetchSessions);
+  const fetchCronJobs = useCronStore((state) => state.fetchJobs);
   const activeModal = useUIStore((s) => s.activeModal);
   const closeModal = useUIStore((s) => s.closeModal);
 
@@ -44,8 +48,10 @@ function App() {
       // Try to auto-connect if token exists
       await autoConnect();
 
-      // Fetch initial agent list
+      // Fetch initial data
       await fetchAgents();
+      await fetchSessions();
+      await fetchCronJobs();
     };
 
     initializeApp().catch((err) => {
@@ -56,7 +62,18 @@ function App() {
     return () => {
       cleanup?.();
     };
-  }, [loadSettings, autoConnect, fetchAgents]);
+  }, [loadSettings, autoConnect, fetchAgents, fetchSessions, fetchCronJobs]);
+
+  // Auto-refresh agent status, sessions, and cron data every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchAgents().catch(console.warn);
+      fetchSessions().catch(console.warn);
+      fetchCronJobs().catch(console.warn);
+    }, 30_000);
+
+    return () => clearInterval(interval);
+  }, [fetchAgents, fetchSessions, fetchCronJobs]);
 
   // System theme listener
   useEffect(() => {
