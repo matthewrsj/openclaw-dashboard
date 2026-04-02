@@ -6,6 +6,7 @@ import { useGatewayStore } from "@/stores/gateway";
 import { useAgentStore } from "@/stores/agents";
 import { useSessionStore } from "@/stores/sessions";
 import { useCronStore } from "@/stores/cron";
+import { useModelStore } from "@/stores/models";
 import { useUIStore } from "@/stores/ui";
 import { initGatewayListeners } from "@/services/gateway-ws";
 import { ToastContainer } from "@/components/ui/Toast";
@@ -31,6 +32,7 @@ function App() {
   const fetchAgents = useAgentStore((state) => state.fetchAgents);
   const fetchSessions = useSessionStore((state) => state.fetchSessions);
   const fetchCronJobs = useCronStore((state) => state.fetchJobs);
+  const fetchModels = useModelStore((state) => state.fetchModels);
   const activeModal = useUIStore((s) => s.activeModal);
   const closeModal = useUIStore((s) => s.closeModal);
 
@@ -52,6 +54,7 @@ function App() {
       await fetchAgents();
       await fetchSessions();
       await fetchCronJobs();
+      await fetchModels();
     };
 
     initializeApp().catch((err) => {
@@ -62,7 +65,7 @@ function App() {
     return () => {
       cleanup?.();
     };
-  }, [loadSettings, autoConnect, fetchAgents, fetchSessions, fetchCronJobs]);
+  }, [loadSettings, autoConnect, fetchAgents, fetchSessions, fetchCronJobs, fetchModels]);
 
   // Auto-refresh agent status, sessions, and cron data every 30 seconds
   // Also poll the Rust backend for actual connection state to fix stale status
@@ -71,6 +74,7 @@ function App() {
       fetchAgents().catch(console.warn);
       fetchSessions().catch(console.warn);
       fetchCronJobs().catch(console.warn);
+      fetchModels().catch(console.warn);
 
       // Sync connection state from Rust backend
       try {
@@ -88,7 +92,7 @@ function App() {
     }, 30_000);
 
     return () => clearInterval(interval);
-  }, [fetchAgents, fetchSessions, fetchCronJobs]);
+  }, [fetchAgents, fetchSessions, fetchCronJobs, fetchModels]);
 
   // System theme listener
   useEffect(() => {
