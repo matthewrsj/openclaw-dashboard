@@ -7,16 +7,15 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { AgentOverview } from "./AgentOverview";
 import { AgentSettings } from "./AgentSettings";
 import { SubagentList } from "./SubagentList";
-import { ChatView } from "@/components/chat/ChatView";
 import { MemoryViewer } from "@/components/memory/MemoryViewer";
 import { LogTail } from "@/components/logs/LogTail";
 import { useNavigate } from "@tanstack/react-router";
+import { useChatStore } from "@/stores/chat";
 
 interface AgentDetailProps { agentId: string; }
 
 const TABS = [
   { id: "overview", label: "Overview" },
-  { id: "chat", label: "Chat" },
   { id: "sessions", label: "Sessions" },
   { id: "memory", label: "Memory" },
   { id: "logs", label: "Logs" },
@@ -29,6 +28,7 @@ export function AgentDetail({ agentId }: AgentDetailProps) {
   const agent = useAgentStore((s) => s.agents.get(agentId));
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const navigate = useNavigate();
+  const setActiveAgentId = useChatStore((s) => s.setActiveAgentId);
 
   useEffect(() => { setActiveTab("overview"); }, [agentId]);
 
@@ -47,6 +47,17 @@ export function AgentDetail({ agentId }: AgentDetailProps) {
         <StatusDot status={statusVariant} size="sm" pulse={agent.status === "active"} />
         <Badge variant={statusVariant === "success" ? "success" : statusVariant === "error" ? "error" : "secondary"}>{agent.status}</Badge>
         <span className="font-mono text-xs text-text-tertiary">{agent.model}</span>
+        <div className="ml-auto">
+          <button
+            onClick={() => {
+              setActiveAgentId(agent.id);
+              navigate({ to: "/chat" });
+            }}
+            className="flex items-center gap-1.5 rounded-md bg-accent-primary/10 px-3 py-1.5 text-xs font-medium text-accent-primary hover:bg-accent-primary/20 transition-colors"
+          >
+            💬 Chat
+          </button>
+        </div>
       </div>
       <div className="flex border-b border-border-primary px-6" role="tablist">
         {TABS.map((tab) => (
@@ -60,7 +71,6 @@ export function AgentDetail({ agentId }: AgentDetailProps) {
       </div>
       <div className="flex-1 overflow-y-auto" role="tabpanel">
         {activeTab === "overview" && <AgentOverview agent={agent} />}
-        {activeTab === "chat" && <ChatView agentId={agent.id} />}
         {activeTab === "sessions" && <SubagentList agent={agent} />}
         {activeTab === "memory" && <MemoryViewer agentId={agent.id} />}
         {activeTab === "logs" && <LogTail agentId={agent.id} />}
