@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -8,11 +8,25 @@ import { useUIStore } from "@/stores/ui";
 import { useAgentStore } from "@/stores/agents";
 import { execCli } from "@/services/tauri-commands";
 
+/** Curated emoji pool — personality-forward, avoids generic/overused ones. */
+const AGENT_EMOJIS = [
+  "🦊", "🐙", "🦉", "🐋", "🦅", "🐺", "🦈", "🐬",
+  "🦇", "🐝", "🦎", "🐢", "🦜", "🐧", "🦩", "🦚",
+  "🔮", "⚗️", "🧿", "🗿", "⚒️", "🛡️", "🔱", "⚙️",
+  "🧠", "👁️", "💎", "🌀", "⚡", "🌙", "☄️", "🪐",
+  "🎭", "🃏", "🏴‍☠️", "🧬", "🦾", "🤖", "👾", "🕵️",
+];
+
+function pickRandomEmoji(exclude?: string): string {
+  const pool = exclude ? AGENT_EMOJIS.filter((e) => e !== exclude) : AGENT_EMOJIS;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 interface CreateAgentModalProps { open: boolean; onClose: () => void; }
 
 export function CreateAgentModal({ open, onClose }: CreateAgentModalProps) {
   const [name, setName] = useState("");
-  const [emoji, setEmoji] = useState("🤖");
+  const [emoji, setEmoji] = useState(() => pickRandomEmoji());
   const [workspace, setWorkspace] = useState("");
   const [model, setModel] = useState("claude-opus-4-6");
   const [soul, setSoul] = useState("");
@@ -20,6 +34,10 @@ export function CreateAgentModal({ open, onClose }: CreateAgentModalProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const addToast = useUIStore((s) => s.addToast);
   const fetchAgents = useAgentStore((s) => s.fetchAgents);
+
+  const shuffleEmoji = useCallback(() => {
+    setEmoji((prev) => pickRandomEmoji(prev));
+  }, []);
 
   const validate = () => {
     const errs: Record<string, string> = {};
@@ -52,7 +70,22 @@ export function CreateAgentModal({ open, onClose }: CreateAgentModalProps) {
       footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={handleSubmit} disabled={submitting}>{submitting ? "Creating…" : "Create Agent"}</Button></>}>
       <div className="space-y-4">
         <Input id="new-agent-name" label="Name *" value={name} onChange={(e) => setName(e.target.value)} error={errors.name} placeholder="e.g., Brokkr" />
-        <Input id="new-agent-emoji" label="Emoji" value={emoji} onChange={(e) => setEmoji(e.target.value)} className="w-20" />
+
+        {/* Emoji picker — random auto-select with shuffle */}
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-text-secondary">
+            Emoji
+          </label>
+          <div className="flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] text-2xl">
+              {emoji}
+            </div>
+            <Button variant="secondary" size="sm" onClick={shuffleEmoji} type="button">
+              🎲 Shuffle
+            </Button>
+          </div>
+        </div>
+
         <Input id="new-agent-workspace" label="Workspace Path *" value={workspace} onChange={(e) => setWorkspace(e.target.value)} error={errors.workspace} placeholder="/Users/…/.openclaw/workspace-…" />
         <Select id="new-agent-model" label="Default Model" value={model} onChange={(e) => setModel(e.target.value)}>
           <option value="claude-opus-4-6">claude-opus-4-6</option>
