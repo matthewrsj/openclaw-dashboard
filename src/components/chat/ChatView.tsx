@@ -26,9 +26,16 @@ export function ChatView({ agentId }: ChatViewProps) {
   const setDraft = useChatStore((s) => s.setDraft);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Load chat history from Gateway on mount / session change
+  // Load chat history and subscribe to live messages on mount / session change
   useEffect(() => {
     loadHistory(sessionKey);
+    // Subscribe to live session messages (from other clients/channels)
+    gatewayRpc("sessions.messages.subscribe", { key: sessionKey }).catch(
+      (err) => console.warn("Failed to subscribe to session messages:", err),
+    );
+    return () => {
+      gatewayRpc("sessions.messages.unsubscribe", { key: sessionKey }).catch(() => {});
+    };
   }, [sessionKey, loadHistory]);
 
   // Auto-scroll to bottom on new messages or content changes

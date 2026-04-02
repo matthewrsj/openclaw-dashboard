@@ -72,6 +72,11 @@ function routeEvent(
       useChatStore.getState().handleChatEvent(data);
       break;
 
+    // Live session messages (from other clients/channels, via sessions.messages.subscribe)
+    case "session.message":
+      useChatStore.getState().handleSessionMessage(data);
+      break;
+
     // Channel status
     case "channel.status":
       useChannelStore.getState().handleChannelEvent(data);

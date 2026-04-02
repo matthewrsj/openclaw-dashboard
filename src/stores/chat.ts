@@ -103,6 +103,8 @@ interface ChatStore {
   cleanupPendingRun: (runId: string, sessionKey: string) => void;
   /** Handle a chat stream event from the Gateway. */
   handleChatEvent: (data: Record<string, unknown>) => void;
+  /** Handle a live session.message event (messages from other clients). */
+  handleSessionMessage: (data: Record<string, unknown>) => void;
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -339,6 +341,45 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       });
       get().cleanupPendingRun(runId, sessionKey);
     }
+  },
+
+  handleSessionMessage: (data: Record<string, unknown>) => {
+    const sessionKey = (data.sessionKey as string) || "";
+    if (!sessionKey) return;
+
+    const msg = data.message as Record<string, unknown> | undefined;
+    if (!msg) return;
+
+    const role = (msg.role as string) || "assistant";
+    // Skip if this is a message we're already tracking via pendingRuns (our own sends)
+    const messageId = (data.messageId as string) || (msg.id as string) || "";
+    const store = get();
+
+    // Check if this message already exists (avoid duplicates with our optimistic adds)
+    const existing = store.messages.get(sessionKey) || [];
+    if (messageId && existing.some((m) => m.id === messageId)) return;
+
+    // Also skip if we have an active pending run for this session — those are handled by handleChatEvent
+    const hasPendingRun = Array.from(store.pendingRuns.values()).some(
+      (p) => p.sessionKey === sessionKey,
+    );
+    if (hasPendingRun && role === "assistant") return;
+
+    // Extract text content
+    const text = extractTextFromMessage(msg);
+    if (text === null || !text.trim()) return;
+
+    // Only show user and assistant messages
+    if (role !== "user" && role !== "assistant") return;
+
+    get().addMessage(sessionKey, {
+      id: messageId || uniqueId("live-"),
+      sessionKey,
+      role: role as "user" | "assistant",
+      content: text,
+      timestamp: (msg.timestamp as number) || Date.now(),
+      status: "sent",
+    });
   },
 
 }));
