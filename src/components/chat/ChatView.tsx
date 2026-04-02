@@ -60,12 +60,15 @@ export function ChatView({ agentId }: ChatViewProps) {
       partialContent: "",
     });
 
-    // Store the assistant message ID so the event router can update it
-    useChatStore.getState().setPendingAssistantId(sessionKey, assistantId);
-
     try {
       // Send via Gateway WebSocket RPC
-      const result = await gatewayRpc<{ ok: boolean; error?: string }>(
+      // idempotencyKey becomes the runId for correlating chat events
+      const result = await gatewayRpc<{
+        ok?: boolean;
+        runId?: string;
+        status?: string;
+        error?: string;
+      }>(
         "chat.send",
         {
           sessionKey,
@@ -78,12 +81,14 @@ export function ChatView({ agentId }: ChatViewProps) {
         throw new Error("Gateway not connected");
       }
 
-      // The RPC returns once the message is accepted. Actual response
-      // content arrives via "chat" push events handled by the event router.
-      // If the RPC itself returned an error, surface it.
       if (result.error) {
         throw new Error(result.error);
       }
+
+      // Register the run for event correlation.
+      // runId = idempotencyKey = assistantId
+      const runId = result.runId || assistantId;
+      useChatStore.getState().registerPendingRun(runId, sessionKey, assistantId);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       updateMessage(sessionKey, assistantId, {
@@ -96,7 +101,6 @@ export function ChatView({ agentId }: ChatViewProps) {
         abortController: null,
         partialContent: "",
       });
-      useChatStore.getState().setPendingAssistantId(sessionKey, null);
     }
   }, [sessionKey, agentId, addMessage, updateMessage, setStreamingState]);
 

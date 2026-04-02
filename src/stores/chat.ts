@@ -54,6 +54,8 @@ interface ChatStore {
   activeAgentId: string | null;
   /** Map of session key → pending assistant message ID (awaiting streamed response). */
   pendingAssistantIds: Map<string, string>;
+  /** Map of runId → { sessionKey, messageId } for correlating chat events. */
+  pendingRuns: Map<string, { sessionKey: string; messageId: string }>;
 
   // Actions
   /** Add a message to a session. */
@@ -79,6 +81,10 @@ interface ChatStore {
   clearMessages: (sessionKey: string) => void;
   /** Track the pending assistant message ID for streaming updates. */
   setPendingAssistantId: (sessionKey: string, messageId: string | null) => void;
+  /** Register a pending run for correlating chat events by runId. */
+  registerPendingRun: (runId: string, sessionKey: string, messageId: string) => void;
+  /** Clean up tracking state for a completed run. */
+  cleanupPendingRun: (runId: string, sessionKey: string) => void;
   /** Handle a chat stream event from the Gateway. */
   handleChatEvent: (data: Record<string, unknown>) => void;
 }
@@ -90,6 +96,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   streamingState: new Map(),
   activeAgentId: null,
   pendingAssistantIds: new Map(),
+  pendingRuns: new Map(),
 
   addMessage: (sessionKey: string, message: ChatMessage) => {
     const messages = new Map(get().messages);
@@ -159,67 +166,73 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set({ pendingAssistantIds });
   },
 
-  handleChatEvent: (data: Record<string, unknown>) => {
-    const sessionKey = (data.sessionKey as string) || "";
-    if (!sessionKey) return;
+  registerPendingRun: (runId: string, sessionKey: string, messageId: string) => {
+    const pendingRuns = new Map(get().pendingRuns);
+    pendingRuns.set(runId, { sessionKey, messageId });
+    set({ pendingRuns });
+  },
 
+  cleanupPendingRun: (runId: string, sessionKey: string) => {
+    const pendingRuns = new Map(get().pendingRuns);
+    pendingRuns.delete(runId);
+    const pendingAssistantIds = new Map(get().pendingAssistantIds);
+    pendingAssistantIds.delete(sessionKey);
+    set({
+      pendingRuns,
+      pendingAssistantIds,
+      streamingState: (() => {
+        const s = new Map(get().streamingState);
+        s.set(sessionKey, { isStreaming: false, abortController: null, partialContent: "" });
+        return s;
+      })(),
+    });
+  },
+
+  handleChatEvent: (data: Record<string, unknown>) => {
     // Gateway ChatEvent: { runId, sessionKey, seq, state, message?, errorMessage?, usage?, stopReason? }
     // message format: { role, content: [{ type: "text", text: "..." }, ...], timestamp }
     // content is cumulative (full text so far), not incremental deltas
+    //
+    // Correlate by runId (= idempotencyKey) since the Gateway may normalize
+    // the sessionKey to a canonical form different from what we sent.
+    const runId = (data.runId as string) || "";
     const state = (data.state as string) || "";
     const store = get();
-    const assistantId = store.pendingAssistantIds.get(sessionKey);
+
+    // Look up the pending run by runId
+    const pending = store.pendingRuns.get(runId);
+    if (!pending) return; // Not one of our runs
+
+    const { sessionKey, messageId } = pending;
 
     if (state === "delta") {
-      if (!assistantId) return;
       const text = extractTextFromMessage(data.message);
       if (text === null) return;
 
       // text is cumulative — replace, don't append
-      get().updateMessage(sessionKey, assistantId, { content: text });
+      get().updateMessage(sessionKey, messageId, { content: text });
       get().setStreamingState(sessionKey, { partialContent: text });
     } else if (state === "final") {
-      if (assistantId) {
-        const text = extractTextFromMessage(data.message);
-        if (text !== null) {
-          get().updateMessage(sessionKey, assistantId, {
-            status: "sent",
-            content: text,
-          });
-        } else {
-          get().updateMessage(sessionKey, assistantId, { status: "sent" });
-        }
-        get().setPendingAssistantId(sessionKey, null);
+      const text = extractTextFromMessage(data.message);
+      if (text !== null) {
+        get().updateMessage(sessionKey, messageId, {
+          status: "sent",
+          content: text,
+        });
+      } else {
+        get().updateMessage(sessionKey, messageId, { status: "sent" });
       }
-      get().setStreamingState(sessionKey, {
-        isStreaming: false,
-        abortController: null,
-        partialContent: "",
-      });
+      get().cleanupPendingRun(runId, sessionKey);
     } else if (state === "aborted") {
-      if (assistantId) {
-        get().updateMessage(sessionKey, assistantId, { status: "sent" });
-        get().setPendingAssistantId(sessionKey, null);
-      }
-      get().setStreamingState(sessionKey, {
-        isStreaming: false,
-        abortController: null,
-        partialContent: "",
-      });
+      get().updateMessage(sessionKey, messageId, { status: "sent" });
+      get().cleanupPendingRun(runId, sessionKey);
     } else if (state === "error") {
       const errorMsg = (data.errorMessage as string) || "Unknown error";
-      if (assistantId) {
-        get().updateMessage(sessionKey, assistantId, {
-          status: "error",
-          error: errorMsg,
-        });
-        get().setPendingAssistantId(sessionKey, null);
-      }
-      get().setStreamingState(sessionKey, {
-        isStreaming: false,
-        abortController: null,
-        partialContent: "",
+      get().updateMessage(sessionKey, messageId, {
+        status: "error",
+        error: errorMsg,
       });
+      get().cleanupPendingRun(runId, sessionKey);
     }
   },
 
