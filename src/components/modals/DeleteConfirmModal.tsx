@@ -21,13 +21,13 @@ export function DeleteConfirmModal({ open, onClose, agentId, agentName }: Delete
     if (!isConfirmed) return;
     setDeleting(true);
     try {
-      const result = await execCli(["agents", "delete", agentId, "--yes"]);
+      const result = await execCli(["agents", "delete", agentId, "--force"]);
       if (result === null) throw new Error("Not running inside Tauri");
       if (result.exitCode !== 0) throw new Error(result.stderr || "Failed to delete agent");
       addToast({ type: "success", message: `Agent "${agentName}" deleted` });
+      onClose();
       await fetchAgents();
       navigate({ to: "/" });
-      onClose();
     } catch (err) {
       addToast({ type: "error", message: err instanceof Error ? err.message : String(err) });
     } finally { setDeleting(false); }

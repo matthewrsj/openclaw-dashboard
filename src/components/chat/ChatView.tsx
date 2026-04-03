@@ -187,6 +187,16 @@ export function ChatView({ agentId }: ChatViewProps) {
       if (result.error) {
         throw new Error(result.error);
       }
+
+      // If the gateway assigned a different runId, register
+      // it so push events are correctly correlated.
+      if (result.runId && result.runId !== assistantId) {
+        useChatStore.getState().registerPendingRun(
+          result.runId,
+          sessionKey,
+          assistantId,
+        );
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       updateMessage(sessionKey, assistantId, {
