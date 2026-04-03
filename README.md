@@ -7,6 +7,8 @@ communication channels -- all from a single dashboard.
 Built with [Tauri 2](https://tauri.app), React 19, TypeScript, and
 Zustand.
 
+![Fleet Overview](screenshots/fleet.png)
+
 ## Features
 
 - **Fleet overview** -- see all agents at a glance with status, cost,
@@ -20,6 +22,10 @@ Zustand.
   and other workspace files
 - **Live log tailing** -- stream agent logs in real time
 - **Session tracking** -- monitor token usage and costs across sessions
+
+| Chat | Cron | Memory |
+|------|------|--------|
+| ![Chat](screenshots/chat.png) | ![Cron](screenshots/cron.png) | ![Memory](screenshots/memory.png) |
 
 ## Prerequisites
 
