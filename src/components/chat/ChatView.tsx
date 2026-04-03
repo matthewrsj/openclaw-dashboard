@@ -1,11 +1,19 @@
 import { useEffect, useRef, useCallback, useMemo } from "react";
 import { useChatStore } from "@/stores/chat";
 import { useAgentStore } from "@/stores/agents";
+import { AgentHeader } from "@/components/agent/AgentHeader";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { uniqueId } from "@/lib/utils";
 import { gatewayRpc } from "@/services/tauri-commands";
+import { useUIStore } from "@/stores/ui";
+import { useNavigate } from "@tanstack/react-router";
+import {
+  findCommand,
+  parseArgs,
+  type SlashCommandContext,
+} from "@/services/slash-commands";
 
 interface ChatViewProps {
   agentId: string;
@@ -24,8 +32,11 @@ export function ChatView({ agentId }: ChatViewProps) {
   const updateMessage = useChatStore((s) => s.updateMessage);
   const setStreamingState = useChatStore((s) => s.setStreamingState);
   const loadHistory = useChatStore((s) => s.loadHistory);
+  const clearMessages = useChatStore((s) => s.clearMessages);
   const draft = useChatStore((s) => s.drafts.get(agentId) || "");
   const setDraft = useChatStore((s) => s.setDraft);
+  const addToast = useUIStore((s) => s.addToast);
+  const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Load chat history and subscribe to live messages on mount / session change
@@ -47,7 +58,77 @@ export function ChatView({ agentId }: ChatViewProps) {
     }
   }, [messages]);
 
+  // Build the slash command context once so it is stable across renders
+  const slashContext: SlashCommandContext = useMemo(
+    () => ({
+      agentId,
+      sessionKey,
+      addToast: (t) => addToast({ type: t.type as "info", message: t.message }),
+      navigate: (opts) => navigate(opts),
+    }),
+    [agentId, sessionKey, addToast, navigate],
+  );
+
   const handleSend = useCallback(async (content: string) => {
+    // --- Slash command interception ---
+    if (content.startsWith("/")) {
+      const withoutSlash = content.slice(1);
+      const parts = parseArgs(withoutSlash);
+      const commandName = parts[0]?.toLowerCase();
+      const commandArgs = parts.slice(1);
+
+      if (!commandName) return;
+
+      const command = findCommand(commandName);
+      if (!command) {
+        addMessage(sessionKey, {
+          id: uniqueId("sys-"),
+          sessionKey,
+          role: "system",
+          content: `Unknown command **/${commandName}**. `
+            + "Type **/help** to see available commands.",
+          timestamp: Date.now(),
+          status: "sent",
+        });
+        return;
+      }
+
+      try {
+        const result = await command.execute(commandArgs, slashContext);
+
+        // Special handling for /clear
+        if (result === "__CLEAR__") {
+          clearMessages(sessionKey);
+          return;
+        }
+
+        if (result) {
+          addMessage(sessionKey, {
+            id: uniqueId("sys-"),
+            sessionKey,
+            role: "system",
+            content: result,
+            timestamp: Date.now(),
+            status: "sent",
+          });
+        }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        addMessage(sessionKey, {
+          id: uniqueId("sys-"),
+          sessionKey,
+          role: "system",
+          content: `Command **/${commandName}** failed: ${errorMsg}`,
+          timestamp: Date.now(),
+          status: "error",
+          error: errorMsg,
+        });
+      }
+      return;
+    }
+
+    // --- Normal message send ---
+
     // Add user message immediately (optimistic)
     addMessage(sessionKey, {
       id: uniqueId("msg-"),
@@ -79,7 +160,9 @@ export function ChatView({ agentId }: ChatViewProps) {
     // Register the pending run BEFORE sending the RPC.
     // The idempotencyKey becomes the runId, and chat push events
     // can arrive before the RPC response resolves.
-    useChatStore.getState().registerPendingRun(assistantId, sessionKey, assistantId);
+    useChatStore.getState().registerPendingRun(
+      assistantId, sessionKey, assistantId,
+    );
 
     try {
       // Send via Gateway WebSocket RPC
@@ -113,7 +196,10 @@ export function ChatView({ agentId }: ChatViewProps) {
       });
       useChatStore.getState().cleanupPendingRun(assistantId, sessionKey);
     }
-  }, [sessionKey, agentId, addMessage, updateMessage, setStreamingState]);
+  }, [
+    sessionKey, addMessage, updateMessage, setStreamingState,
+    clearMessages, slashContext,
+  ]);
 
   const handleStop = useCallback(async () => {
     try {
@@ -125,6 +211,10 @@ export function ChatView({ agentId }: ChatViewProps) {
 
   return (
     <div className="flex h-full flex-col">
+      {agent && (
+        <AgentHeader agent={agent} activeTab="chat" />
+      )}
+
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto" role="log">
         {messages.length === 0 ? (

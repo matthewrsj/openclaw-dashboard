@@ -3,7 +3,7 @@
 //! Provides Tauri commands for reading and listing files within
 //! agent workspace directories, with path traversal protection.
 
-use super::cli::resolve_openclaw_path;
+use super::cli::{resolve_openclaw_path, user_path};
 use serde::Serialize;
 use std::path::PathBuf;
 use tokio::process::Command;
@@ -44,8 +44,13 @@ const ALLOWED_DIRS: &[&str] = &["memory"];
 #[tauri::command]
 pub async fn get_agent_workspace_path(agent_id: String) -> Result<String, String> {
     // Use CLI to get workspace path (async to avoid blocking tokio runtime)
-    let output = Command::new(resolve_openclaw_path())
-        .args(["agents", "list", "--json"])
+    let mut cmd = Command::new(resolve_openclaw_path());
+    cmd.args(["agents", "list", "--json"]);
+    let path = user_path();
+    if !path.is_empty() {
+        cmd.env("PATH", path);
+    }
+    let output = cmd
         .output()
         .await
         .map_err(|e| format!("Failed to execute openclaw: {e}"))?;

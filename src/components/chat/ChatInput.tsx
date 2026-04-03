@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { SlashCommandMenu } from "./SlashCommandMenu";
 
 function formatDuration(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
@@ -48,6 +49,7 @@ export function ChatInput({
   onDraftChange,
 }: ChatInputProps) {
   const [value, setValue] = useState(draft);
+  const [slashMenuOpen, setSlashMenuOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const enterToSend = useSettingsStore((s) => s.enterToSend);
   const streamingElapsed = useStreamingTimer(isStreaming ? streamingStartedAt : null);
@@ -75,7 +77,17 @@ export function ChatInput({
   const handleChange = (text: string) => {
     setValue(text);
     onDraftChange?.(text);
+    // Show slash command menu when input starts with `/` and has no space yet
+    setSlashMenuOpen(text.startsWith("/") && !text.includes(" "));
   };
+
+  const handleSlashSelect = useCallback((commandName: string) => {
+    const next = `/${commandName} `;
+    setValue(next);
+    onDraftChange?.(next);
+    setSlashMenuOpen(false);
+    textareaRef.current?.focus();
+  }, [onDraftChange]);
 
   // Flush queue when streaming ends
   useEffect(() => {
@@ -100,6 +112,10 @@ export function ChatInput({
   }, [value, isStreaming, sessionKey, onSend, onDraftChange, enqueueMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // When the slash command menu is open, let it handle navigation keys
+    if (slashMenuOpen && ["ArrowUp", "ArrowDown", "Enter", "Tab", "Escape"].includes(e.key)) {
+      return;
+    }
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       handleSend();
@@ -163,7 +179,13 @@ export function ChatInput({
         </div>
       )}
 
-      <div className="flex items-end gap-2 p-4">
+      <div className="relative flex items-end gap-2 p-4">
+        <SlashCommandMenu
+          inputValue={value}
+          onSelect={handleSlashSelect}
+          onDismiss={() => setSlashMenuOpen(false)}
+          visible={slashMenuOpen}
+        />
         <textarea
           ref={textareaRef}
           value={value}

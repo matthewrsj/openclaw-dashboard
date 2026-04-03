@@ -1,9 +1,13 @@
-import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useAgentStore } from "@/stores/agents";
+import { useChatStore } from "@/stores/chat";
 import { StatusDot } from "@/components/ui/StatusDot";
 
 export function SidebarAgents() {
   const agents = useAgentStore((state) => state.agentList);
+  const activeAgentId = useChatStore((s) => s.activeAgentId);
+  const setActiveAgentId = useChatStore((s) => s.setActiveAgentId);
+  const navigate = useNavigate();
 
   if (agents.length === 0) {
     return (
@@ -11,10 +15,17 @@ export function SidebarAgents() {
         <h3 className="mb-2 text-xs font-medium text-text-tertiary uppercase">
           Agents
         </h3>
-        <p className="text-xs text-text-tertiary">No agents available</p>
+        <p className="text-xs text-text-tertiary">
+          No agents available
+        </p>
       </div>
     );
   }
+
+  const handleClick = (agentId: string) => {
+    setActiveAgentId(agentId);
+    navigate({ to: "/chat" });
+  };
 
   return (
     <div className="border-t border-sidebar-border">
@@ -22,16 +33,23 @@ export function SidebarAgents() {
         <h3 className="mb-2 text-xs font-medium text-text-tertiary uppercase">
           Agents
         </h3>
-        <ul className="space-y-1">
-          {agents.slice(0, 6).map((agent) => (
+        <ul className="space-y-1 overflow-y-auto">
+          {agents.map((agent) => (
             <li key={agent.id}>
-              <Link
-                to="/agent/$agentId"
-                params={{ agentId: agent.id }}
-                className="flex items-center rounded-md p-2 text-sm hover:bg-bg-hover"
+              <button
+                onClick={() => handleClick(agent.id)}
+                className={
+                  "flex w-full items-center rounded-md p-2"
+                  + " text-sm hover:bg-bg-hover"
+                  + (activeAgentId === agent.id
+                    ? " bg-bg-active text-text-primary"
+                    : "")
+                }
               >
-                <span className="inline-flex w-6 justify-center mr-2 text-base">{agent.emoji}</span>
-                <span className="min-w-0 flex-1 truncate text-text-secondary">
+                <span className="inline-flex w-6 justify-center mr-2 text-base">
+                  {agent.emoji}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-left text-text-secondary">
                   {agent.name}
                 </span>
                 <StatusDot
@@ -45,18 +63,10 @@ export function SidebarAgents() {
                   size="sm"
                   pulse={agent.status === "active"}
                 />
-              </Link>
+              </button>
             </li>
           ))}
         </ul>
-        {agents.length > 6 && (
-          <Link
-            to="/"
-            className="mt-2 block text-xs text-text-tertiary hover:text-text-primary"
-          >
-            +{agents.length - 6} more agents
-          </Link>
-        )}
       </div>
     </div>
   );

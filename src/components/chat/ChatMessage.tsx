@@ -73,19 +73,23 @@ export const ChatMessage = memo(function ChatMessage({
   agentName,
 }: ChatMessageProps) {
   const isUser = message.role === "user";
+  const isSystem = message.role === "system";
 
   return (
     <div
       className={cn(
         "flex gap-3 px-4 py-3",
         isUser ? "flex-row-reverse" : "flex-row",
+        isSystem && "justify-center",
       )}
       role="article"
     >
-      {/* Avatar */}
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-secondary text-sm">
-        {isUser ? "👤" : agentEmoji || "🤖"}
-      </div>
+      {/* Avatar -- hidden for system messages */}
+      {!isSystem && (
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-secondary text-sm">
+          {isUser ? ">" : agentEmoji || "*"}
+        </div>
+      )}
 
       {/* Content */}
       <div
@@ -93,7 +97,9 @@ export const ChatMessage = memo(function ChatMessage({
           "max-w-[80%] rounded-lg px-4 py-2.5 text-sm",
           isUser
             ? "bg-accent-primary/15 text-text-primary"
-            : "bg-bg-secondary text-text-primary",
+            : isSystem
+              ? "bg-bg-tertiary/50 text-text-secondary border border-border-secondary"
+              : "bg-bg-secondary text-text-primary",
           message.status === "error" && "border border-status-error/30",
         )}
       >

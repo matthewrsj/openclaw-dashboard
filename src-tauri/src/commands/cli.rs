@@ -20,56 +20,67 @@ pub struct CliOutput {
     pub exit_code: i32,
 }
 
-/// Cached path to the `openclaw` binary.
-static OPENCLAW_PATH: OnceLock<String> = OnceLock::new();
+/// Cached resolved environment (openclaw path + user PATH).
+static RESOLVED_ENV: OnceLock<(String, String)> = OnceLock::new();
 
-/// Resolve the `openclaw` binary path.
+/// Resolve the `openclaw` binary path and the user's login
+/// shell PATH.
 ///
 /// macOS apps launched from Finder inherit a minimal PATH that
-/// excludes common install locations.  We ask a login shell for
-/// the real PATH, then search well-known locations as a fallback.
-pub fn resolve_openclaw_path() -> &'static str {
-    OPENCLAW_PATH.get_or_init(|| {
-        // Ask a login shell for the full PATH, then use `which`
+/// excludes common install locations and `node`.  We spawn a
+/// login shell once to capture both `which openclaw` and the
+/// full `$PATH`, then cache the result.
+fn resolve_env() -> &'static (String, String) {
+    RESOLVED_ENV.get_or_init(|| {
+        // Ask a login shell for both the openclaw path and PATH
         if let Ok(output) = std::process::Command::new("/bin/zsh")
-            .args(["-lc", "which openclaw"])
+            .args([
+                "-lc",
+                "echo \"__PATH__=$PATH\"; which openclaw",
+            ])
             .output()
         {
             if output.status.success() {
-                let path = String::from_utf8_lossy(&output.stdout)
-                    .trim()
-                    .to_string();
-                if !path.is_empty()
-                    && PathBuf::from(&path).is_file()
+                let stdout =
+                    String::from_utf8_lossy(&output.stdout);
+                let mut user_path = String::new();
+                let mut openclaw = String::new();
+                for line in stdout.lines() {
+                    if let Some(p) =
+                        line.strip_prefix("__PATH__=")
+                    {
+                        user_path = p.to_string();
+                    } else if !line.is_empty()
+                        && !line.starts_with("__")
+                    {
+                        openclaw = line.trim().to_string();
+                    }
+                }
+                if !openclaw.is_empty()
+                    && PathBuf::from(&openclaw).is_file()
                 {
-                    return path;
+                    return (openclaw, user_path);
+                }
+                if !user_path.is_empty() {
+                    return (
+                        "openclaw".to_string(),
+                        user_path,
+                    );
                 }
             }
         }
-
-        // Fallback: check well-known locations
-        let mut candidates = Vec::new();
-        if let Ok(home) = std::env::var("HOME") {
-            let h = PathBuf::from(&home);
-            candidates.push(h.join(".npm-global/bin/openclaw"));
-            candidates.push(h.join(".cargo/bin/openclaw"));
-            candidates.push(h.join(".local/bin/openclaw"));
-        }
-        candidates.push(PathBuf::from(
-            "/usr/local/bin/openclaw",
-        ));
-        candidates.push(PathBuf::from(
-            "/opt/homebrew/bin/openclaw",
-        ));
-
-        for c in &candidates {
-            if c.is_file() {
-                return c.to_string_lossy().into_owned();
-            }
-        }
-
-        "openclaw".to_string()
+        ("openclaw".to_string(), String::new())
     })
+}
+
+/// Get the resolved openclaw binary path.
+pub fn resolve_openclaw_path() -> &'static str {
+    &resolve_env().0
+}
+
+/// Get the user's login shell PATH.
+pub fn user_path() -> &'static str {
+    &resolve_env().1
 }
 
 /// Shell metacharacters that must not appear in CLI arguments.
@@ -77,7 +88,15 @@ const SHELL_METACHARACTERS: &[char] = &[';', '|', '&', '`', '$', '(', ')', '{', 
 
 /// Known safe openclaw subcommands.
 const ALLOWED_SUBCOMMANDS: &[&str] = &[
-    "agents", "gateway", "sessions", "cron", "config", "help", "version", "status",
+    "acp", "agent", "agents", "approvals", "backup",
+    "channels", "completion", "config", "configure", "cron",
+    "dashboard", "devices", "directory", "dns", "docs",
+    "doctor", "gateway", "health", "help", "hooks", "logs",
+    "memory", "message", "models", "node", "nodes", "onboard",
+    "pairing", "plugins", "qr", "reset", "sandbox", "secrets",
+    "security", "sessions", "setup", "skills", "status",
+    "system", "tasks", "tui", "uninstall", "update",
+    "version", "webhooks",
 ];
 
 /// Validate that CLI arguments don't contain shell metacharacters
@@ -123,8 +142,13 @@ fn validate_args(args: &[String]) -> Result<(), String> {
 pub async fn exec_cli(args: Vec<String>) -> Result<CliOutput, String> {
     validate_args(&args)?;
 
-    let output = Command::new(resolve_openclaw_path())
-        .args(&args)
+    let mut cmd = Command::new(resolve_openclaw_path());
+    cmd.args(&args);
+    let path = user_path();
+    if !path.is_empty() {
+        cmd.env("PATH", path);
+    }
+    let output = cmd
         .output()
         .await
         .map_err(|e| format!("Failed to execute openclaw: {e}"))?;
