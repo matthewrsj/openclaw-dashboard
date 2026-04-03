@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Environment and secrets
+.env
+.env.*
+.env.local
+*.pem
+*.key
+
+# Tauri build artifacts
+src-tauri/target/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,3 +32,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code
+.claude/

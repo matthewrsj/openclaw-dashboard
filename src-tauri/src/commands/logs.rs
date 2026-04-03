@@ -36,9 +36,24 @@ impl LogTailState {
     }
 }
 
+/// Validate that an agent ID contains only safe characters.
+fn validate_agent_id(agent_id: &str) -> Result<(), String> {
+    if agent_id.is_empty() {
+        return Err("Agent ID cannot be empty".to_string());
+    }
+    if agent_id.contains(['/', '\\', '.', '\0']) {
+        return Err(
+            "Agent ID contains forbidden characters".to_string(),
+        );
+    }
+    Ok(())
+}
+
 /// Resolve the log file path for an agent.
 fn resolve_log_path(agent_id: &str) -> Result<PathBuf, String> {
-    let home = std::env::var("HOME").map_err(|_| "HOME not set".to_string())?;
+    validate_agent_id(agent_id)?;
+    let home = std::env::var("HOME")
+        .map_err(|_| "HOME not set".to_string())?;
     // OpenClaw stores logs at ~/.openclaw/logs/<agent>.log
     let log_path = PathBuf::from(&home)
         .join(".openclaw")
