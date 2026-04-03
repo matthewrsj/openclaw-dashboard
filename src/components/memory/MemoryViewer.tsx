@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import rehypeSanitize from "rehype-sanitize";
 import { listWorkspaceFiles, readWorkspaceFile, writeWorkspaceFile } from "@/services/tauri-commands";
 import { cn } from "@/lib/utils";
@@ -199,8 +200,8 @@ export function MemoryViewer({ agentId }: MemoryViewerProps) {
                   autoFocus
                 />
               ) : (
-                <div className="prose prose-sm max-w-none text-text-primary">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+                <div className="prose prose-sm max-w-none text-text-primary [&>*+*]:mt-3 [&_p]:my-2 [&_br]:block [&_br]:content-[''] [&_br]:mt-2 [&_p:empty]:h-4">
+                  <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[rehypeSanitize]}>
                     {content}
                   </ReactMarkdown>
                 </div>
