@@ -4,6 +4,8 @@
 //! the structured output (stdout, stderr, exit code).
 
 use serde::Serialize;
+use std::path::PathBuf;
+use std::sync::OnceLock;
 use tokio::process::Command;
 
 /// Output from a CLI command execution.
@@ -16,6 +18,40 @@ pub struct CliOutput {
     pub stderr: String,
     /// Process exit code.
     pub exit_code: i32,
+}
+
+/// Cached path to the `openclaw` binary.
+static OPENCLAW_PATH: OnceLock<String> = OnceLock::new();
+
+/// Resolve the `openclaw` binary path.
+///
+/// macOS apps launched from Finder inherit a minimal PATH that
+/// excludes common install locations.  We search well-known paths
+/// so the app works regardless of how it was launched.
+pub fn resolve_openclaw_path() -> &'static str {
+    OPENCLAW_PATH.get_or_init(|| {
+        let candidates: Vec<PathBuf> = {
+            let mut v = Vec::new();
+            if let Ok(home) = std::env::var("HOME") {
+                v.push(PathBuf::from(&home).join(".cargo/bin/openclaw"));
+                v.push(
+                    PathBuf::from(&home)
+                        .join(".local/bin/openclaw"),
+                );
+            }
+            v.push(PathBuf::from("/usr/local/bin/openclaw"));
+            v.push(PathBuf::from("/opt/homebrew/bin/openclaw"));
+            v.push(PathBuf::from("/opt/local/bin/openclaw"));
+            v
+        };
+        for candidate in &candidates {
+            if candidate.is_file() {
+                return candidate.to_string_lossy().into_owned();
+            }
+        }
+        // Fall back to bare name and let the OS PATH resolve it
+        "openclaw".to_string()
+    })
 }
 
 /// Shell metacharacters that must not appear in CLI arguments.
@@ -69,7 +105,7 @@ fn validate_args(args: &[String]) -> Result<(), String> {
 pub async fn exec_cli(args: Vec<String>) -> Result<CliOutput, String> {
     validate_args(&args)?;
 
-    let output = Command::new("openclaw")
+    let output = Command::new(resolve_openclaw_path())
         .args(&args)
         .output()
         .await
