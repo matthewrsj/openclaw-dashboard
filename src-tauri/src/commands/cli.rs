@@ -35,7 +35,7 @@ fn resolve_env() -> &'static (String, String) {
         // Ask a login shell for both the openclaw path and PATH
         if let Ok(output) = std::process::Command::new("/bin/zsh")
             .args([
-                "-lc",
+                "-lic",
                 "echo \"__PATH__=$PATH\"; which openclaw",
             ])
             .output()
