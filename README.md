@@ -23,15 +23,18 @@ Zustand.
 
 ## Prerequisites
 
-- macOS 14.0+
-- [OpenClaw CLI](https://github.com/openclaw-ai/openclaw) installed and
+- macOS 14.0+ (Apple Silicon)
+- [OpenClaw CLI](https://github.com/openclaw/openclaw) installed and
   on your PATH
 - A running OpenClaw Gateway instance
+
+For building from source you also need Node.js 18+ and
+[Rust](https://rustup.rs).
 
 ## Install
 
 Download the `.dmg` from
-[Releases](https://github.com/openclaw-ai/openclaw-dashboard/releases),
+[Releases](https://github.com/matthewrsj/openclaw-dashboard/releases),
 open it, and drag the app to `/Applications`.
 
 > The app is not code-signed. Right-click and select "Open" the first

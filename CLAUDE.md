@@ -15,9 +15,13 @@ npm run dev             # Vite-only browser preview (Tauri APIs return null)
 npm run build           # Type-check + production build
 npm run lint            # ESLint (--max-warnings 0)
 npm run format          # Prettier (src/**)
+npm run package         # Build distributable .dmg
 npx vitest              # Run all tests
 npx vitest run src/__tests__/stores/cron.test.ts   # Single test file
 ```
+
+`npm run build` uses `tsconfig.build.json` which excludes `src/__tests__/` from type-checking.
+The full `tsconfig.json` includes tests and is used by the IDE.
 
 ## Architecture
 
@@ -31,6 +35,8 @@ npx vitest run src/__tests__/stores/cron.test.ts   # Single test file
 derived stable arrays (e.g., `agentList`, `activeAgents`). Stores are called outside React via
 `useXxxStore.getState()` in event handlers and services -- this is intentional.
 Settings persist via `tauri-plugin-store`, not Zustand persist middleware.
+The `models` store fetches available models from the Gateway's `/v1/models` endpoint
+with a hardcoded fallback list when the gateway is unreachable.
 
 **Gateway communication (two paths):**
 - **WebSocket (primary):** Rust backend manages a persistent WS connection. Frontend listens to
@@ -54,6 +60,11 @@ double-init with an `initialized` flag.
 - Keychain access via `security-framework` for token storage
 - Ed25519 device identity at `~/.openclaw/dashboard-device-key`
 - `exec_cli` validates args against a hardcoded allowlist and rejects shell metacharacters
+- `write_workspace_file` validates against `ALLOWED_FILES`/`ALLOWED_DIRS` allowlists with
+  parent-directory canonicalization for path traversal protection
+- `resolve_openclaw_path()` uses a login shell (`zsh -lc which`) to find the `openclaw`
+  binary, since macOS apps launched from Finder don't inherit the user's PATH
+- Log tail commands validate `agent_id` to reject path separators
 - WS auth: challenge-response with Ed25519 signature, token zeroed from memory after connect
 
 ### Styling
