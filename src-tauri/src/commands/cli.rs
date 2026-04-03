@@ -26,30 +26,48 @@ static OPENCLAW_PATH: OnceLock<String> = OnceLock::new();
 /// Resolve the `openclaw` binary path.
 ///
 /// macOS apps launched from Finder inherit a minimal PATH that
-/// excludes common install locations.  We search well-known paths
-/// so the app works regardless of how it was launched.
+/// excludes common install locations.  We ask a login shell for
+/// the real PATH, then search well-known locations as a fallback.
 pub fn resolve_openclaw_path() -> &'static str {
     OPENCLAW_PATH.get_or_init(|| {
-        let candidates: Vec<PathBuf> = {
-            let mut v = Vec::new();
-            if let Ok(home) = std::env::var("HOME") {
-                v.push(PathBuf::from(&home).join(".cargo/bin/openclaw"));
-                v.push(
-                    PathBuf::from(&home)
-                        .join(".local/bin/openclaw"),
-                );
-            }
-            v.push(PathBuf::from("/usr/local/bin/openclaw"));
-            v.push(PathBuf::from("/opt/homebrew/bin/openclaw"));
-            v.push(PathBuf::from("/opt/local/bin/openclaw"));
-            v
-        };
-        for candidate in &candidates {
-            if candidate.is_file() {
-                return candidate.to_string_lossy().into_owned();
+        // Ask a login shell for the full PATH, then use `which`
+        if let Ok(output) = std::process::Command::new("/bin/zsh")
+            .args(["-lc", "which openclaw"])
+            .output()
+        {
+            if output.status.success() {
+                let path = String::from_utf8_lossy(&output.stdout)
+                    .trim()
+                    .to_string();
+                if !path.is_empty()
+                    && PathBuf::from(&path).is_file()
+                {
+                    return path;
+                }
             }
         }
-        // Fall back to bare name and let the OS PATH resolve it
+
+        // Fallback: check well-known locations
+        let mut candidates = Vec::new();
+        if let Ok(home) = std::env::var("HOME") {
+            let h = PathBuf::from(&home);
+            candidates.push(h.join(".npm-global/bin/openclaw"));
+            candidates.push(h.join(".cargo/bin/openclaw"));
+            candidates.push(h.join(".local/bin/openclaw"));
+        }
+        candidates.push(PathBuf::from(
+            "/usr/local/bin/openclaw",
+        ));
+        candidates.push(PathBuf::from(
+            "/opt/homebrew/bin/openclaw",
+        ));
+
+        for c in &candidates {
+            if c.is_file() {
+                return c.to_string_lossy().into_owned();
+            }
+        }
+
         "openclaw".to_string()
     })
 }
